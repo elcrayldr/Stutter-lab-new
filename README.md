@@ -12,7 +12,7 @@ Capture-based vocal stutter, pitch/formant and ambience processor. Windows x64 V
 - Builds the stutter automatically after capture stops and re-renders after parameter or selection changes (debounced, background worker).
 - The only output action is external drag-and-drop of the finished 24-bit WAV directly into FL Studio, Cubase or another DAW. No export/save-as workflow is exposed in the editor.
 - Every completed capture is automatically archived as a 24-bit WAV; generated renders are also retained. Both live in `Documents/CRAY LDR/STUTTER LAB/Audio/` (`Captures` and `Renders` subfolders) and are not removed by a temporary-file cleanup timer.
-- While Preview is looping, parameter edits trigger a background rebuild and the new audio hot-swaps into playback at the next audio callback, preserving the relative loop position with a short de-click ramp.
+- Preview loops by default. While it is playing, parameter edits trigger a background rebuild and the new audio hot-swaps into playback at the next audio callback, preserving the relative loop position with a short de-click ramp.
 - The editor is resizable from 960×660 up to 1900×1250; the existing resize limits keep the control layout usable.
 - Preview auditions the exact completed render, with a short transition ramp to avoid clicks.
 - Rhythmic engine: repeat count, tempo division, gate, swing, humanize, step accents/rests, forward/reverse/ping-pong/random playback and scan across the selection.
