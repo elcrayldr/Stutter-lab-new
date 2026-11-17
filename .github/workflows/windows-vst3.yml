@@ -29,6 +29,6 @@ jobs:
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: STUTTER-LAB-Windows-x64-VST3
+          name: StutterLabLdr-Windows-x64-VST3
           path: build/STUTTER_LAB_artefacts/Release/VST3/
           if-no-files-found: error
