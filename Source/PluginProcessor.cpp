@@ -212,6 +212,7 @@ void StutterLabAudioProcessor::clearCapture()
 
 void StutterLabAudioProcessor::invalidateRender()
 {
+    nextJobId.fetch_add (1, std::memory_order_acq_rel); // invalidate any worker result already in flight
     cancelRender();
     preview.stop();
     {
@@ -489,20 +490,26 @@ void StutterLabAudioProcessor::publishRender (cray::StereoBuffer&& audio, const 
         renderState.store (RenderState::Failed);
         return;
     }
-    // 3) publish the exact rendered buffer for preview, then the metadata
-    auto* pb = new cray::PreviewBuffer();
-    pb->audio = audio;
-    preview.submit (pb);
+    // 3) Publish atomically with respect to capture invalidation. A render that
+    // finished after a new capture began must never replace the new take's result.
     {
         const juce::ScopedLock sl (infoLock);
+        if (id + 1 != nextJobId.load (std::memory_order_acquire))
+        {
+            file.deleteFile();
+            return;
+        }
         processedAudio = audio;
         info.file = file; info.seconds = stats.seconds; info.peak = stats.peak; info.sampleRate = audio.sampleRate;
         info.slices = (int) stats.slices; info.bitDepth = 24; info.id = id; info.peaks = std::move (peaks);
         info.message = {};
+        auto* pb = new cray::PreviewBuffer();
+        pb->audio = audio;
+        preview.submit (pb);
+        renderProgress.store (1.0f, std::memory_order_release);
+        renderId.store (id, std::memory_order_release);
+        renderState.store (RenderState::Ready, std::memory_order_release);
     }
-    renderProgress.store (1.0f, std::memory_order_release);
-    renderId.store (id);
-    renderState.store (RenderState::Ready);
 }
 
 StutterLabAudioProcessor::RenderInfo StutterLabAudioProcessor::getRenderInfo() const
