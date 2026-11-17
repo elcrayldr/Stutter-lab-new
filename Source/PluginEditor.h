@@ -33,7 +33,7 @@ private:
 };
 } // namespace slui
 
-class StutterLabAudioProcessorEditor final : public juce::AudioProcessorEditor, private juce::Timer
+class StutterLabAudioProcessorEditor final : public juce::AudioProcessorEditor, private juce::Timer, private juce::AudioProcessorValueTreeState::Listener
 {
 public:
     explicit StutterLabAudioProcessorEditor (StutterLabAudioProcessor&);
@@ -59,9 +59,9 @@ private:
     void placeKnobs (juce::Rectangle<int> area, std::initializer_list<const char*> ids);
     void setChoice (const char* id, int index);
     void timerCallback() override;
+    void parameterChanged (const juce::String& parameterID, float newValue) override;
     void refreshStatus();
     void doGenerate();
-    void doExport();
     void drawPeaks (juce::Graphics&, juce::Rectangle<int>, const std::vector<float>& minMax, juce::Colour);
     void drawDisplay (juce::Graphics&);
     void drawEnvelope (juce::Graphics&, juce::Rectangle<int>);
@@ -76,21 +76,22 @@ private:
     std::map<juce::String, std::unique_ptr<Knob>> knobs;
     std::map<juce::String, std::unique_ptr<Toggle>> toggles;
     std::vector<std::unique_ptr<juce::TextButton>> pushes;
-    juce::TextButton *captureButton = nullptr, *stopButton = nullptr, *clearButton = nullptr, *generateButton = nullptr,
-                     *playOrigButton = nullptr, *playProcButton = nullptr, *exportButton = nullptr, *newSeedButton = nullptr,
-                     *savePresetButton = nullptr, *loadPresetButton = nullptr, *undoButton = nullptr,
+    juce::TextButton *captureButton = nullptr, *stopButton = nullptr, *clearButton = nullptr,
+                     *previewButton = nullptr, *newSeedButton = nullptr,
                      *dirButtons[4] = {}, *filterTypeButtons[2] = {};
-    juce::ComboBox presetBox, divisionBox, delayRateBox;
+    juce::ComboBox divisionBox, delayRateBox;
     std::unique_ptr<ComboAttachment> divisionAttachment, delayRateAttachment;
     juce::Label statusLabel;
-    std::unique_ptr<juce::FileChooser> fileChooser;
 
     juce::Rectangle<int> headerArea, displayArea, waveArea, renderArea, patternArea, ledArea, envArea, dragArea;
     juce::Rectangle<int> stutterGroup, moveGroup, toneGroup, outGroup;
     std::vector<float> capturePeaks, renderPeaks;
     int lastCaptureSamples = -1, lastW = 0;
     uint64_t shownRenderId = 0;
-    bool wasRecording = false, draggingSelection = false, dragStarted = false, draggingSteps = false, previewIsOriginal = false;
+    bool wasRecording = false, draggingSelection = false, dragStarted = false, draggingSteps = false;
+    std::atomic<bool> autoRenderPending { false };
+    int autoRenderCountdown = 0;
+    bool autoRenderArmed = false;
     uint16_t touchedSteps = 0;
     juce::Point<int> pressPoint;
     double dragAnchor = 0.0;
