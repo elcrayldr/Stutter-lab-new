@@ -107,6 +107,7 @@ private:
     class RenderWorker;
     struct Job { cray::StereoBuffer selection; cray::RenderSettings settings; uint64_t id = 0, cancelEpoch = 0; };
     void publishRender (cray::StereoBuffer&& audio, const cray::RenderStats&, uint64_t id);
+    void invalidateRender();
     juce::File makeUniqueRenderFile() const;
     void cleanOldRenders() const;
 
