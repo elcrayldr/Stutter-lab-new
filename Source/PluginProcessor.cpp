@@ -635,9 +635,26 @@ void StutterLabAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 
 void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
 {
+    // Hosts may pass an empty, truncated or stale state block during project recovery.
+    // Reject impossible chunks before constructing a stream or mutating processor state.
+    constexpr int maxStateBytes = 128 * 1024 * 1024;
+    if (data == nullptr || size < (int) sizeof (int) || size > maxStateBytes)
+        return;
+
     juce::MemoryInputStream in (data, (size_t) size, false);
     const int version = in.readInt();
     if (version < 1 || version > 7) return;
+
+    // Minimum remaining payload for each legacy format, including the selection range
+    // and any version-specific fields that must be present before they are read.
+    const int minimumPayloadBytes = version <= 2 ? (version == 1 ? 29 : 34)
+                                  : version == 3 ? 55
+                                  : version == 4 ? 79
+                                  : version == 5 ? 83
+                                  : version == 6 ? 87
+                                  : 91;
+    if (in.getNumBytesRemaining() < minimumPayloadBytes)
+        return;
     if (version <= 2)
     {
         repeats.store (juce::jlimit (2, 32, in.readInt()));
@@ -676,7 +693,8 @@ void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
     if (version >= 5 && in.getNumBytesRemaining() >= 4)
     {
         const int compressedSize = juce::jlimit (0, 128 * 1024 * 1024, in.readInt());
-        if (compressedSize > 0 && compressedSize <= in.getNumBytesRemaining())
+        if (compressedSize > 0 && compressedSize <= 64 * 1024 * 1024
+            && compressedSize <= in.getNumBytesRemaining())
         {
             juce::MemoryBlock compressed;
             compressed.setSize ((size_t) compressedSize);
@@ -702,9 +720,11 @@ void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
             }
         }
     }
-    if (version >= 7 && in.getNumBytesRemaining() > 0)
+    if (version >= 7 && in.getNumBytesRemaining() >= 4)
     {
-        if (auto xml = juce::XmlDocument::parse (in.readString()))
+        const auto xmlText = in.readString();
+        if (xmlText.getNumBytesAsUTF8() <= 1024 * 1024)
+        if (auto xml = juce::XmlDocument::parse (xmlText))
         {
             const auto tree = juce::ValueTree::fromXml (*xml);
             if (tree.isValid() && tree.getType() == parameters.state.getType()) parameters.replaceState (tree);
