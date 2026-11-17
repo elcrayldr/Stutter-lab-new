@@ -115,48 +115,57 @@ void slui::VuMeter::setLevel (float peak)
 
 void slui::VuMeter::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds().toFloat().reduced (2.0f);
-    g.setColour (juce::Colour (0xff2c2a25)); g.fillRoundedRectangle (b, 6.0f);                // bezel
-    auto face = b.reduced (5.0f);
-    g.setGradientFill (juce::ColourGradient (kCream, face.getX(), face.getY(), juce::Colour (0xffcfcab4), face.getX(), face.getBottom(), false));
-    g.fillRoundedRectangle (face, 3.0f);
+    auto outer = getLocalBounds().toFloat().reduced (2.0f);
+    g.setColour (juce::Colour (0xff08090a));
+    g.fillRoundedRectangle (outer.expanded (1.5f), 4.0f);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff202226), outer.getX(), outer.getY(),
+                                             juce::Colour (0xff101113), outer.getRight(), outer.getBottom(), false));
+    g.fillRoundedRectangle (outer, 4.0f);
+    g.setColour (juce::Colour (0xff55565a));
+    g.drawRoundedRectangle (outer.reduced (0.5f), 4.0f, 1.0f);
 
-    juce::Graphics::ScopedSaveState ss (g);
-    g.reduceClipRegion (face.toNearestInt());
-    const auto pivot = juce::Point<float> (face.getCentreX(), face.getBottom() + face.getHeight() * 0.10f);
-    const float R = face.getHeight() * 0.92f, sweep = 0.92f;
-    auto at = [&] (float v, float r) { const float a = -sweep + 2.0f * sweep * v; return juce::Point<float> (pivot.x + std::sin (a) * r, pivot.y - std::cos (a) * r); };
+    auto face = outer.reduced (7.0f);
+    g.setColour (juce::Colour (0xff090a0b));
+    g.fillRoundedRectangle (face, 2.0f);
+    g.setColour (kInk);
+    g.setFont (fnt (10.0f));
+    g.drawText (title, face.removeFromTop (17.0f).toNearestInt(), juce::Justification::centred);
+    
+    const float db = needle <= 0.001f ? -60.0f : -30.0f + needle * 33.0f;
+    g.setColour (kLedFg);
+    g.setFont (mono (11.0f));
+    g.drawText (db <= -59.0f ? "-INF" : juce::String (db, 1), face.removeFromTop (17.0f).toNearestInt(), juce::Justification::centred);
 
-    const float v0 = 30.0f / 33.0f;                                                         // 0 dBFS
-    juce::Path red;                                                                         // red zone
-    for (int i = 0; i <= 12; ++i) { const auto p = at (v0 + (1.0f - v0) * (float) i / 12.0f, R); if (i == 0) red.startNewSubPath (p); else red.lineTo (p); }
-    g.setColour (juce::Colour (0xffc23a2b)); g.strokePath (red, juce::PathStrokeType (3.0f));
-    juce::Path arc;
-    for (int i = 0; i <= 40; ++i) { const auto p = at (v0 * (float) i / 40.0f, R); if (i == 0) arc.startNewSubPath (p); else arc.lineTo (p); }
-    g.setColour (kInk); g.strokePath (arc, juce::PathStrokeType (1.4f));
+    auto bars = face.reduced (10.0f, 5.0f);
+    constexpr int segments = 16;
+    constexpr float gap = 2.0f;
+    const float segH = juce::jmax (2.0f, (bars.getHeight() - gap * (segments - 1)) / (float) segments);
+    const float segW = juce::jmin (22.0f, bars.getWidth());
+    const float x = bars.getCentreX() - segW * 0.5f;
+    const int lit = juce::jlimit (0, segments, (int) std::ceil (needle * (float) segments));
 
-    const struct { float db; const char* txt; } ticks[] = { { -30, "-30" }, { -20, "-20" }, { -10, "-10" }, { -6, "-6" }, { -3, "-3" }, { 0, "0" }, { 3, "+3" } };
-    g.setFont (fnt (10.0f, false));
-    for (auto& t : ticks)
+    for (int i = 0; i < segments; ++i)
     {
-        const float v = (t.db + 30.0f) / 33.0f;
-        const auto p0 = at (v, R), p1 = at (v, R - 7.0f), tp = at (v, R - 18.0f);
-        g.setColour (t.db > 0.5f ? juce::Colour (0xffc23a2b) : kInk);
-        g.drawLine (p0.x, p0.y, p1.x, p1.y, 1.4f);
-        g.drawText (t.txt, juce::Rectangle<float> (26, 12).withCentre (tp).toNearestInt(), juce::Justification::centred);
+        const float y = bars.getBottom() - segH - (float) i * (segH + gap);
+        const auto seg = juce::Rectangle<float> (x, y, segW, segH);
+        juce::Colour on = i < 11 ? juce::Colour (0xff78b86b)
+                         : i < 14 ? juce::Colour (0xffffc45a)
+                                  : juce::Colour (0xffef6556);
+        const juce::Colour off = i < 11 ? juce::Colour (0xff1b3022)
+                              : i < 14 ? juce::Colour (0xff382d19)
+                                       : juce::Colour (0xff3b201e);
+        g.setColour (i < lit ? on : off);
+        g.fillRoundedRectangle (seg, 1.0f);
+        if (i < lit)
+        {
+            g.setColour (on.withAlpha (0.18f));
+            g.fillRoundedRectangle (seg.expanded (1.0f, 0.5f), 1.5f);
+        }
     }
-    g.setColour (kInk); g.setFont (fnt (12.0f));
-    g.drawText (title, face.withTrimmedTop (face.getHeight() * 0.58f).toNearestInt(), juce::Justification::centredTop);
-    g.setFont (fnt (9.0f, false)); g.setColour (kInkSoft);
-    g.drawText ("dBFS PEAK", face.withTrimmedTop (face.getHeight() * 0.76f).toNearestInt(), juce::Justification::centredTop);
 
-    const auto tip = at (needle, R * 0.97f);                                                // needle
-    g.setColour (juce::Colours::black.withAlpha (0.25f)); g.drawLine (pivot.x + 1, pivot.y + 1, tip.x + 1.5f, tip.y + 1.5f, 1.6f);
-    g.setColour (juce::Colour (0xff111111)); g.drawLine (pivot.x, pivot.y, tip.x, tip.y, 1.5f);
-    g.setColour (clipHold > 0.05f ? kRedLit.withAlpha (clipHold) : juce::Colour (0x00000000));
-    g.fillEllipse (juce::Rectangle<float> (7, 7).withCentre ({ face.getRight() - 12.0f, face.getY() + 12.0f }));   // clip lamp
+    g.setColour (clipHold > 0.05f ? kRedLit.withAlpha (clipHold) : juce::Colour (0xff3b201e));
+    g.fillEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ outer.getRight() - 9.0f, outer.getY() + 9.0f }));
 }
-
 //==============================================================================
 StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -340,7 +349,7 @@ void StutterLabAudioProcessorEditor::resized()
     // display row: [VU in] [source + pattern screen] [VU out]
     {
         auto d = displayArea;
-        const int vuW = juce::jmin (230, (int) (d.getWidth() * 0.19f));
+        const int vuW = juce::jmin (78, juce::jmax (64, (int) (d.getWidth() * 0.075f)));
         vuIn.setBounds (d.removeFromLeft (vuW));
         vuOut.setBounds (d.removeFromRight (vuW));
         d.reduce (8, 0);
@@ -422,18 +431,17 @@ void StutterLabAudioProcessorEditor::resized()
 //==============================================================================
 void StutterLabAudioProcessorEditor::drawGroup (juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title)
 {
-    const auto f = r.toFloat().reduced (1.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.28f)); g.drawRoundedRectangle (f, 5.0f, 1.2f);             // engraved outline
-    g.setColour (juce::Colours::white.withAlpha (0.35f)); g.drawRoundedRectangle (f.translated (0.0f, 1.0f), 5.0f, 1.0f);
-    g.setFont (fnt (12.0f));
-    const int tw = (int) fnt (12.0f).getStringWidthFloat (title) + 18;
-    const auto t = juce::Rectangle<int> (tw, 18).withCentre ({ r.getCentreX(), r.getY() + 14 });
-    g.setColour (kInk); g.drawText (title, t, juce::Justification::centred);
-    g.setColour (kInkSoft);
-    g.drawLine ((float) r.getX() + 14, (float) t.getCentreY(), (float) t.getX(), (float) t.getCentreY(), 1.0f);
-    g.drawLine ((float) t.getRight(), (float) t.getCentreY(), (float) r.getRight() - 14, (float) t.getCentreY(), 1.0f);
+    const float y = (float) r.getY() + 19.0f;
+    g.setColour (juce::Colour (0xff111214).withAlpha (0.75f));
+    g.drawHorizontalLine ((int) y + 1, (float) r.getX() + 5.0f, (float) r.getRight() - 5.0f);
+    g.setColour (kPanelTop);
+    g.fillRect (juce::Rectangle<float> ((float) r.getX() + 8.0f, y - 8.0f,
+                                         fnt (11.0f).getStringWidthFloat (title) + 14.0f, 16.0f));
+    g.setColour (kAmberLit);
+    g.setFont (fnt (10.5f));
+    g.drawText (title, juce::Rectangle<int> (r.getX() + 12, r.getY() + 4, r.getWidth() - 24, 17),
+                juce::Justification::centredLeft);
 }
-
 void StutterLabAudioProcessorEditor::drawPeaks (juce::Graphics& g, juce::Rectangle<int> r, const std::vector<float>& mm, juce::Colour c)
 {
     if (mm.size() < 2 || r.isEmpty()) return;
