@@ -26,6 +26,19 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Run core tests
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Validate VST3 lifecycle and state with pluginval
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP "pluginval_Windows.zip"
+          $dest = Join-Path $env:RUNNER_TEMP "pluginval"
+          Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip" -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
+          $validator = Get-ChildItem -Path $dest -Filter "pluginval.exe" -Recurse | Select-Object -First 1
+          if ($null -eq $validator) { throw "pluginval.exe was not found in the downloaded archive." }
+          $plugin = Join-Path (Get-Location) "build/STUTTER_LAB_artefacts/Release/VST3/StutterLabLdr.vst3"
+          if (-not (Test-Path $plugin)) { throw "Built VST3 bundle not found: $plugin" }
+          & $validator.FullName --strictness-level 5 $plugin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
