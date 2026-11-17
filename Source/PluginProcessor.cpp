@@ -647,7 +647,7 @@ void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
 
     // Minimum remaining payload for each legacy format, including the selection range
     // and any version-specific fields that must be present before they are read.
-    const int minimumPayloadBytes = version <= 2 ? (version == 1 ? 29 : 34)
+    const int minimumPayloadBytes = version <= 2 ? (version == 1 ? 25 : 30)
                                   : version == 3 ? 55
                                   : version == 4 ? 79
                                   : version == 5 ? 83
