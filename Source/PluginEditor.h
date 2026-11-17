@@ -3,8 +3,8 @@
 #include <map>
 #include "PluginProcessor.h"
 
-// STUTTER LAB 0.5 - hardware-style control surface (graphite/beige panel, analogue VU meters,
-// illuminated push buttons, red LED read-out). Original artwork; layout inspired by classic studio units.
+// STUTTER LAB - original hardware-style control surface: graphite faceplate, chrome rotary controls,
+// segmented LED meters and illuminated switches. Visual language inspired by classic studio hardware.
 namespace slui
 {
 class HardwareLookAndFeel final : public juce::LookAndFeel_V4
@@ -19,7 +19,7 @@ public:
     juce::Font getLabelFont (juce::Label&) override;
 };
 
-// Analogue-style needle meter with ballistic smoothing (UI thread only).
+// Vertical segmented LED meter with ballistic smoothing (UI thread only).
 class VuMeter final : public juce::Component
 {
 public:
