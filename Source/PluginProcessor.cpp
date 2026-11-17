@@ -115,7 +115,6 @@ StutterLabAudioProcessor::StutterLabAudioProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       parameters (*this, &undoManager, "STUTTER_LAB_PARAMETERS", createParameterLayout())
 {
-    cleanOldRenders();
     worker = std::make_unique<RenderWorker> (*this);
 }
 
@@ -203,6 +202,46 @@ void StutterLabAudioProcessor::startCapture()
     capture.requestStart();
 }
 void StutterLabAudioProcessor::stopCapture() { capture.requestStop(); }
+
+juce::File StutterLabAudioProcessor::getAudioLibraryDirectory (const juce::String& subfolder) const
+{
+    auto root = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                    .getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB").getChildFile ("Audio");
+    if (subfolder.isNotEmpty()) root = root.getChildFile (subfolder);
+    root.createDirectory();
+    return root;
+}
+
+bool StutterLabAudioProcessor::archiveCapture (juce::File& savedFile, juce::String& error)
+{
+    if (capture.isRecording()) { error = "Stop the capture before archiving it."; return false; }
+    cray::StereoBuffer take;
+    if (! capture.snapshotAll (take) || take.empty()) { error = "There is no captured audio to save."; return false; }
+
+    const auto folder = getAudioLibraryDirectory ("Captures");
+    if (! folder.isDirectory()) { error = "Could not create the STUTTER LAB Audio/Captures folder."; return false; }
+
+    static std::atomic<int> captureCounter { 0 };
+    const auto stamp = juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S");
+    savedFile = folder.getNonexistentChildFile ("STUTTER_CAPTURE_" + stamp + "_" + juce::String (++captureCounter), ".wav", false);
+    const auto bytes = cray::encodeWav (take, cray::WavFormat::Pcm24);
+    juce::FileOutputStream out (savedFile);
+    if (! out.openedOk() || ! out.write (bytes.data(), bytes.size()))
+    {
+        savedFile.deleteFile();
+        error = "Could not save the captured WAV in " + folder.getFullPathName();
+        return false;
+    }
+    out.flush();
+    if (! out.getStatus().wasOk())
+    {
+        savedFile.deleteFile();
+        error = "The captured WAV could not be written completely.";
+        return false;
+    }
+    return true;
+}
+
 void StutterLabAudioProcessor::clearCapture()
 {
     invalidateRender();
@@ -445,7 +484,8 @@ bool StutterLabAudioProcessor::generate (juce::String& error)
     estimate += std::min (6.0, delayTail + reverbTail);
     if (estimate > 120.0) { error = "Render including effect tails would exceed 120 s. Reduce repeats, feedback or reverb size."; return false; }
 
-    preview.stop();
+    // Keep an active audition running: the worker will hot-swap its audio buffer
+    // at the next audio callback when the new render is ready.
     renderProgress.store (0.0f, std::memory_order_release);
     renderState.store (RenderState::Rendering);
     worker->post (std::move (job));
@@ -505,6 +545,7 @@ void StutterLabAudioProcessor::publishRender (cray::StereoBuffer&& audio, const 
         info.message = {};
         auto* pb = new cray::PreviewBuffer();
         pb->audio = audio;
+        pb->keepPosition = preview.isPlaying();
         preview.submit (pb);
         renderProgress.store (1.0f, std::memory_order_release);
         renderId.store (id, std::memory_order_release);
@@ -544,20 +585,11 @@ bool StutterLabAudioProcessor::exportRenderTo (const juce::File& destination, ju
 juce::File StutterLabAudioProcessor::makeUniqueRenderFile() const
 {
     static std::atomic<int> counter { 0 };
-    auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB");
-    dir.createDirectory();
+    auto dir = getAudioLibraryDirectory ("Renders");
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S");
     return dir.getNonexistentChildFile ("STUTTER_LAB_" + stamp + "_" + juce::String (++counter), ".wav", false);
 }
 
-void StutterLabAudioProcessor::cleanOldRenders() const
-{
-    auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB");
-    juce::Array<juce::File> files;
-    dir.findChildFiles (files, juce::File::findFiles, false, "STUTTER_LAB_*.wav");
-    const auto cutoff = juce::Time::getCurrentTime() - juce::RelativeTime::days (2);
-    for (auto& f : files) if (f.getLastModificationTime() < cutoff) f.deleteFile();   // only files older than 2 days
-}
 
 //==============================================================================
 // State: v1-v4 are migrated; v5 adds compressed capture persistence.
