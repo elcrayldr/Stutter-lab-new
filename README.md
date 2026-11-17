@@ -59,6 +59,6 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Validation status
 
-The current CI build and pluginval run have passed. This is not a substitute for manual host testing. Before release, verify FL Studio 26 and Cubase 13 loading, project-state recall with a captured take, auto-render after capture and edits, drag-out import, parameter automation, mono/stereo operation, sample-rate changes, editor close/reopen and CPU/memory stress.
+The current source build and pluginval run passed in [workflow run #44](https://github.com/elcrayldr/Stutter-lab-new/actions/runs/44192406911) for commit `0960c292c6be483377d018113bd96893e1d375df`. The subsequent commits on this branch only update documentation; they do not change the validated plugin source. This is not a substitute for manual host testing. Before release, verify FL Studio 26 and Cubase 13 loading, project-state recall with a captured take, auto-render after capture and edits, drag-out import, parameter automation, mono/stereo operation, sample-rate changes, editor close/reopen and CPU/memory stress.
 
 See `FINAL_VALIDATION_STATUS.md` and `TEST_PLAN.md` for the remaining release gates.
