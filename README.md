@@ -1,6 +1,6 @@
 # CRAY LDR — StutterLabLdr
 
-Capture-based vocal stutter, pitch/formant and ambience processor. Windows x64 VST3, JUCE 8.0.6, C++17, CMake.
+Capture-based vocal stutter generator and render-to-DAW tool. Windows x64 VST3, JUCE 8.0.6, C++17, CMake.
 
 ## Product workflow
 
@@ -9,17 +9,16 @@ Capture-based vocal stutter, pitch/formant and ambience processor. Windows x64 V
 - Captures mono or stereo input for up to 60 seconds.
 - Stores the captured take in the DAW project state using a compressed payload.
 - Displays the captured waveform; drag across it to isolate a word, syllable or transient-sized fragment.
-- Builds the stutter automatically after capture stops and re-renders after parameter or selection changes (debounced, background worker).
-- The only output action is external drag-and-drop of the finished 24-bit WAV directly into FL Studio, Cubase or another DAW. No export/save-as workflow is exposed in the editor.
-- Every completed capture is automatically archived as a 24-bit WAV; generated renders are also retained. Both live in `Documents/CRAY LDR/STUTTER LAB/Audio/` (`Captures` and `Renders` subfolders) and are not removed by a temporary-file cleanup timer.
-- Preview loops by default. While it is playing, parameter edits trigger a background rebuild and the new audio hot-swaps into playback at the next audio callback, preserving the relative loop position with a short de-click ramp.
-- The editor is resizable from 960×660 up to 1900×1250; the existing resize limits keep the control layout usable.
-- Preview auditions the exact completed render, with a short transition ramp to avoid clicks.
+- Builds the stutter automatically after capture stops and re-renders after parameter or selection edits (debounced background worker).
+- The output action is external drag-and-drop of the finished 24-bit WAV into FL Studio, Cubase or another DAW.
+- Every completed capture is archived as a 24-bit WAV in `Documents/CRAY LDR/STUTTER LAB/Audio/Captures`. Generated renders are retained in the sibling `Renders` folder.
+- Preview loops by default. While it is playing, parameter edits rebuild in the background and hot-swap the new audio while preserving relative playhead position with a short de-click ramp.
+- The editor is resizable from 960×660 up to 1900×1250.
 - Rhythmic engine: repeat count, tempo division, gate, swing, humanize, step accents/rests, forward/reverse/ping-pong/random playback and scan across the selection.
-- Creative tone/movement: drive, pitch/formant, resonant filter, tempo-synchronised ping-pong delay, reverb, level ramp and fades.
+- Creative processing: drive, pitch/formant, resonant filter, tempo-synchronised ping-pong delay, reverb, level ramp and fades.
 - A new capture invalidates the previous result, preventing a stale render from being dragged into the session.
 - Host-automatable parameters through `AudioProcessorValueTreeState`.
-- Dark, hardware-inspired panel with amber indicators, analog metering, source/result waveforms and a single drag-to-DAW output area.
+- Dark, hardware-inspired panel with amber indicators, segmented LED metering, source/result waveforms and a single drag-to-DAW output area.
 
 ## Build requirements
 
@@ -32,38 +31,34 @@ From PowerShell in the repository root:
 
 ```powershell
 cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DSTUTTERLAB_BUILD_TESTS=ON
-cmake --build build --config Release --target STUTTER_LAB_VST3 StutterLabCoreTests --parallel
+cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
 
 Expected VST3 bundle:
 
-`build\STUTTER_LAB_artefacts\Release\VST3\StutterLabLdr.vst3`
+`build\\STUTTER_LAB_artefacts\\Release\\VST3\\StutterLabLdr.vst3`
 
 Copy the complete `.vst3` bundle to:
 
-`C:\Program Files\Common Files\VST3\`
+`C:\\Program Files\\Common Files\\VST3\\`
 
 Then rescan in FL Studio 26 or Cubase 13.
 
-## Automated tests
+## Automated validation
 
-The JUCE-free DSP/capture/preview test target can also be built independently on Linux or Windows:
+GitHub Actions on Windows builds the complete VST3 with MSVC, runs the JUCE-free core tests, validates the VST3 lifecycle/editor/state with pluginval strictness level 5, and uploads the VST3 bundle.
 
-```bash
-cmake -S STUTTER_LAB_VST3/Tests -B build-core -DCMAKE_BUILD_TYPE=Release
-cmake --build build-core --parallel
-ctest --test-dir build-core --output-on-failure
+The JUCE-free test target can be built separately:
+
+```powershell
+cmake -S . -B build -A x64 -DSTUTTERLAB_BUILD_TESTS=ON
+cmake --build build --config Release --target stutter_lab_core_tests --parallel
+ctest --test-dir build -C Release --output-on-failure
 ```
-
-The test suite covers rhythmic divisions, full-selection scanning, gate/swing, fades, deterministic randomisation, cancellation, pitch/formant processing, delay/reverb tails, WAV encoding, capture persistence primitives, exact preview/render sample equality after the safety ramp, 192 kHz processing and concurrent capture/preview stress.
-
-## GitHub Actions
-
-`.github/workflows/windows-vst3.yml` builds the Windows x64 VST3, runs the JUCE-free core tests, verifies the bundle and uploads both the VST3 and a complete source handoff artifact.
 
 ## Validation status
 
-Do not treat a successful core test as proof that the JUCE wrapper or VST3 host integration works. The JUCE plugin must still pass the Windows MSVC build and manual validation in FL Studio 26 and Cubase 13. In particular, verify project-state recall with a captured take, auto-render after capture and parameter edits, selection changes, drag-out from both hosts, mono/stereo buses, sample-rate changes and editor close/reopen.
+The current CI build and pluginval run have passed. This is not a substitute for manual host testing. Before release, verify FL Studio 26 and Cubase 13 loading, project-state recall with a captured take, auto-render after capture and edits, drag-out import, parameter automation, mono/stereo operation, sample-rate changes, editor close/reopen and CPU/memory stress.
 
-See `Docs/FINAL_VALIDATION_STATUS.md` and `LICENSING.md` before distribution.
+See `FINAL_VALIDATION_STATUS.md` and `TEST_PLAN.md` for the remaining release gates.
