@@ -4,21 +4,19 @@ Capture-based vocal stutter, pitch/formant and ambience processor. Windows x64 V
 
 ## Product workflow
 
-`CAPTURE → SELECT → GENERATE → PREVIEW → DRAG TO DAW / EXPORT WAV`
+`CAPTURE → SELECT WORD / SYLLABLE → AUTO-RENDER → PREVIEW → DRAG RESULT TO DAW`
 
 - Captures mono or stereo input for up to 60 seconds.
 - Stores the captured take in the DAW project state using a compressed payload.
-- Displays source and generated waveforms; drag across the source waveform to select a region.
-- Generates on a background worker, reports progress and supports cancellation.
-- Processes the full selected region using repeat scanning, rhythmic divisions, reverse, ping-pong, seeded random direction, swing, gate and humanize.
-- Offline pitch shift and independent spectral-envelope/formant shift.
-- Tempo-synchronised stereo ping-pong delay, comb reverb, phone filtering and drive saturation.
-- Preview and WAV export use the same completed render buffer. Preview uses a 4 ms transition ramp to avoid clicks, then reproduces the render samples without additional DSP.
-- The editor uses a source waveform, a separate render waveform, a dedicated rhythm panel and a tone/space panel. Capture waveform analysis runs after capture stops so it cannot steal blocks from an active take.
-- Pitch/formant remain optional experimental spectral tools; they are not enabled in the default or reverse factory preset.
-- Generates unique 24-bit PCM WAV files, supports external file drag-out and Save As export.
+- Displays the captured waveform; drag across it to isolate a word, syllable or transient-sized fragment.
+- Builds the stutter automatically after capture stops and re-renders after parameter or selection changes (debounced, background worker).
+- The only output action is external drag-and-drop of the finished 24-bit WAV directly into FL Studio, Cubase or another DAW. No export/save-as workflow is exposed in the editor.
+- Preview auditions the exact completed render, with a short transition ramp to avoid clicks.
+- Rhythmic engine: repeat count, tempo division, gate, swing, humanize, step accents/rests, forward/reverse/ping-pong/random playback and scan across the selection.
+- Creative tone/movement: drive, pitch/formant, resonant filter, tempo-synchronised ping-pong delay, reverb, level ramp and fades.
+- A new capture invalidates the previous result, preventing a stale render from being dragged into the session.
 - Host-automatable parameters through `AudioProcessorValueTreeState`.
-- Five factory presets, user preset save/load, A/B snapshots and Undo.
+- Dark, hardware-inspired panel with amber indicators, analog metering, source/result waveforms and a single drag-to-DAW output area.
 
 ## Build requirements
 
@@ -63,6 +61,6 @@ The test suite covers rhythmic divisions, full-selection scanning, gate/swing, f
 
 ## Validation status
 
-Do not treat a successful core test as proof that the JUCE wrapper or VST3 host integration works. The JUCE plugin must still pass the Windows MSVC build and manual validation in FL Studio 26 and Cubase 13. In particular, verify project-state recall with a captured take, drag-out from both hosts, parameter automation, undo/A-B, preset recall, mono/stereo buses, sample-rate changes and editor close/reopen.
+Do not treat a successful core test as proof that the JUCE wrapper or VST3 host integration works. The JUCE plugin must still pass the Windows MSVC build and manual validation in FL Studio 26 and Cubase 13. In particular, verify project-state recall with a captured take, auto-render after capture and parameter edits, selection changes, drag-out from both hosts, mono/stereo buses, sample-rate changes and editor close/reopen.
 
 See `Docs/FINAL_VALIDATION_STATUS.md` and `LICENSING.md` before distribution.
