@@ -30,7 +30,7 @@ Capture-based vocal stutter, pitch/formant and ambience processor. Windows x64 V
 From PowerShell in the repository root:
 
 ```powershell
-cmake -S STUTTER_LAB_VST3 -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DSTUTTERLAB_BUILD_TESTS=ON
+cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DSTUTTERLAB_BUILD_TESTS=ON
 cmake --build build --config Release --target STUTTER_LAB_VST3 StutterLabCoreTests --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```

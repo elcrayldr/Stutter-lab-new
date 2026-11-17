@@ -1,0 +1,31 @@
+name: Windows VST3 and core tests
+
+on:
+  push:
+    branches: [main, "fix/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release -DSTUTTERLAB_BUILD_TESTS=ON
+      - name: Build VST3 and tests
+        run: cmake --build build --config Release --parallel
+      - name: Run core tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STUTTER-LAB-Windows-x64-VST3
+          path: build/STUTTER_LAB_artefacts/Release/VST3/
+          if-no-files-found: error
