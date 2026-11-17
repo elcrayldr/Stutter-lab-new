@@ -3,7 +3,6 @@ name: Windows VST3 and core tests
 on:
   push:
     branches: [main, "fix/**"]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
