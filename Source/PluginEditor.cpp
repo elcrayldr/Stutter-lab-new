@@ -240,6 +240,7 @@ StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioP
         "step9", "step10", "step11", "step12", "step13", "step14", "step15", "step16"
     };
     for (auto* id : parameterIds) processor.getParameters().addParameterListener (id, this);
+    if (processor.getCapturedSamples() >= 64) autoRenderPending.store (true, std::memory_order_release); // rebuild a recalled take after project load
 
     refreshStatus();
     startTimerHz (20);
