@@ -595,6 +595,12 @@ void StutterLabAudioProcessorEditor::timerCallback()
     if (wasRecording && ! rec)                                            // take just ended: select all and schedule first render
     {
         processor.setSelection (0.0, processor.getCaptureSeconds());
+        juce::File archivedCapture;
+        juce::String archiveError;
+        if (processor.archiveCapture (archivedCapture, archiveError))
+            infoText = "CAPTURE SAVED  /  " + archivedCapture.getFileName();
+        else
+            infoText = archiveError;
         lastCaptureSamples = -1;
         autoRenderPending.store (true, std::memory_order_release);
     }
