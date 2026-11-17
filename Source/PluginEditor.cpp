@@ -203,7 +203,11 @@ StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioP
     addKnob ("swing", "SWING"); addKnob ("humanize", "HUMANIZE"); addKnob ("steps", "LENGTH");
     addToggle ("scan", "SCAN");
     newSeedButton = &addPush ("NEW SEED");
-    newSeedButton->onClick = [this] { processor.seed.store ((int) juce::Random::getSystemRandom().nextInt()); };
+    newSeedButton->onClick = [this]
+    {
+        processor.seed.store ((int) juce::Random::getSystemRandom().nextInt());
+        autoRenderPending.store (true, std::memory_order_release);
+    };
 
     // --- MOVEMENT
     addKnob ("rampStart", "START"); addKnob ("rampEnd", "END"); addKnob ("rampCurve", "CURVE");
@@ -638,7 +642,7 @@ void StutterLabAudioProcessorEditor::timerCallback()
     previewButton->setButtonText (playing ? "STOP PREVIEW" : "PREVIEW");
     const bool rendering = processor.getRenderState() == StutterLabAudioProcessor::RenderState::Rendering;
     stopButton->setButtonText (rendering ? "CANCEL" : "STOP");
-    previewButton->setEnabled (processor.hasRender());
+    previewButton->setEnabled (processor.hasRender() && ! autoRenderPending.load() && ! autoRenderArmed);
     knobs.at ("bpm")->s.setEnabled (! processor.hostTempoAvailable());
     refreshStatus();
     repaint();
@@ -718,6 +722,7 @@ void StutterLabAudioProcessorEditor::mouseDrag (const juce::MouseEvent& e)
     {
         const double t = juce::jlimit (0.0, 1.0, (double) (e.x - waveArea.getX()) / waveArea.getWidth()) * processor.getCaptureSeconds();
         processor.setSelection (dragAnchor, t);
+        autoRenderPending.store (true, std::memory_order_release);
         return;
     }
     // Drag-out starts only from the DRAG TO DAW handle or the result waveform, and only the exact rendered file.
