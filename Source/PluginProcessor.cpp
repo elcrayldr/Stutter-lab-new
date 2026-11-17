@@ -86,7 +86,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StutterLabAudioProcessor::cr
     layout.add (std::make_unique<APF> ("reverbMix", "Reverb Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.07f));
     layout.add (std::make_unique<APF> ("reverbSize", "Reverb Size", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f));
     layout.add (std::make_unique<APF> ("bpm", "Manual BPM", juce::NormalisableRange<float> (40.0f, 300.0f, 0.1f), 120.0f));
-    layout.add (std::make_unique<APB> ("loop", "Loop Preview", false));
+    layout.add (std::make_unique<APB> ("loop", "Loop Preview", true));
     // pattern (0 = rest, otherwise the accent level of that step)
     layout.add (std::make_unique<API> ("steps", "Pattern Length", 1, 16, 8));
     for (int i = 0; i < 16; ++i)
