@@ -199,14 +199,30 @@ juce::AudioProcessorEditor* StutterLabAudioProcessor::createEditor() { return ne
 //==============================================================================
 void StutterLabAudioProcessor::startCapture()
 {
-    preview.stop();
+    invalidateRender();
     capture.requestStart();
 }
 void StutterLabAudioProcessor::stopCapture() { capture.requestStop(); }
 void StutterLabAudioProcessor::clearCapture()
 {
+    invalidateRender();
     capture.clear();
     selectionStart.store (0.0); selectionEnd.store (0.5);
+}
+
+void StutterLabAudioProcessor::invalidateRender()
+{
+    cancelRender();
+    preview.stop();
+    {
+        const juce::ScopedLock sl (infoLock);
+        info = {};
+        originalAudio = {};
+        processedAudio = {};
+    }
+    renderProgress.store (0.0f, std::memory_order_release);
+    renderId.fetch_add (1, std::memory_order_acq_rel);
+    renderState.store (RenderState::Idle, std::memory_order_release);
 }
 
 void StutterLabAudioProcessor::setSelection (double a, double b)
