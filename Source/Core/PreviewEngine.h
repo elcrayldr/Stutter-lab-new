@@ -52,10 +52,15 @@ public:
             if (slot >= 0 && incoming.compare_exchange_strong (nb, nullptr, std::memory_order_acq_rel))
             {
                 PreviewBuffer* old = current;
+                const long oldLength = old != nullptr ? (long) old->audio.size() : 0;
+                const long newLength = (long) nb->audio.size();
                 current = nb;
-                length.store ((int) nb->audio.size(), std::memory_order_release);
-                if (! nb->keepPosition) cursor = 0;
-                if (cursor > (long) nb->audio.size()) cursor = 0;
+                length.store ((int) newLength, std::memory_order_release);
+                if (nb->keepPosition && oldLength > 0 && newLength > 0)
+                    cursor = (long) std::llround ((double) cursor * (double) newLength / (double) oldLength);
+                else
+                    cursor = 0;
+                if (cursor >= newLength) cursor = 0;
                 if (old) retired[slot].store (old, std::memory_order_release);
             }
         }
