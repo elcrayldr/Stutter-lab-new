@@ -72,7 +72,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout StutterLabAudioProcessor::cr
     layout.add (std::make_unique<API> ("repeats", "Repeats", 2, 32, 8));
     layout.add (std::make_unique<APC> ("division", "Rate", juce::StringArray { "1/2", "1/4", "1/8", "1/8 D", "1/8 T", "1/16", "1/16 D", "1/16 T", "1/32", "1/32 T", "1/64" }, 5));
     layout.add (std::make_unique<APC> ("direction", "Direction", juce::StringArray { "Forward", "Reverse", "Ping-Pong", "Random" }, 0));
-    layout.add (std::make_unique<APB> ("scan", "Scan Source", true));
+    layout.add (std::make_unique<APB> ("scan", "Scan Source", false));
     layout.add (std::make_unique<APF> ("swing", "Swing", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.05f));
     layout.add (std::make_unique<APF> ("gate", "Gate", juce::NormalisableRange<float> (0.05f, 1.0f, 0.01f), 0.82f));
     layout.add (std::make_unique<APF> ("humanize", "Humanize", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.04f));
