@@ -1,4 +1,4 @@
-# CRAY LDR — STUTTER LAB
+# CRAY LDR — StutterLabLdr
 
 Capture-based vocal stutter, pitch/formant and ambience processor. Windows x64 VST3, JUCE 8.0.6, C++17, CMake.
 
@@ -38,7 +38,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 Expected VST3 bundle:
 
-`build\STUTTER_LAB_artefacts\Release\VST3\STUTTER LAB.vst3`
+`build\STUTTER_LAB_artefacts\Release\VST3\StutterLabLdr.vst3`
 
 Copy the complete `.vst3` bundle to:
 
