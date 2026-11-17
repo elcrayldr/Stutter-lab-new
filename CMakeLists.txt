@@ -20,7 +20,7 @@ juce_add_plugin(STUTTER_LAB
     PLUGIN_MANUFACTURER_CODE CrLd
     PLUGIN_CODE StLb
     FORMATS VST3
-    PRODUCT_NAME "STUTTER LAB"
+    PRODUCT_NAME "StutterLabLdr"
     DESCRIPTION "Capture-based vocal stutter processor"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
