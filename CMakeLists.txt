@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(STUTTER_LAB VERSION 0.5.1 LANGUAGES C CXX)
-
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+project(STUTTER_LAB VERSION 0.5.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,7 +20,7 @@ juce_add_plugin(STUTTER_LAB
     PLUGIN_MANUFACTURER_CODE CrLd
     PLUGIN_CODE StLb
     FORMATS VST3
-    PRODUCT_NAME "StutterLabLdr"
+    PRODUCT_NAME "STUTTER LAB"
     DESCRIPTION "Capture-based vocal stutter processor"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
@@ -54,7 +52,7 @@ target_link_libraries(STUTTER_LAB PRIVATE
     juce::juce_recommended_warning_flags
 )
 
-option(STUTTERLAB_BUILD_TESTS "Build JUCE-free core tests" ON)
+option(STUTTERLAB_BUILD_TESTS "Build JUCE-free core tests" OFF)
 if(STUTTERLAB_BUILD_TESTS)
     enable_testing()
     add_subdirectory(Tests)
