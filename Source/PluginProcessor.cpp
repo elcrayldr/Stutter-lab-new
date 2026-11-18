@@ -7,8 +7,16 @@
 class StutterLabAudioProcessor::RenderWorker final : public juce::Thread
 {
 public:
-    explicit RenderWorker (StutterLabAudioProcessor& o) : juce::Thread ("STUTTER LAB render"), owner (o) { startThread(); }
-    ~RenderWorker() override { owner.cancelFlag.store (true); stopThread (4000); }
+    explicit RenderWorker (StutterLabAudioProcessor& o) : juce::Thread ("STUTTER LAB render"), owner (o) {}
+    ~RenderWorker() override
+    {
+        owner.cancelFlag.store (true, std::memory_order_release);
+        signalThreadShouldExit();
+        wake.signal();
+        // The processor owns every object used by this worker. Never allow the
+        // thread to outlive the processor if a long render exceeds an arbitrary timeout.
+        waitForThreadToExit (-1);
+    }
 
     void post (Job&& j)
     {
@@ -29,6 +37,7 @@ public:
         while (! threadShouldExit())
         {
             wake.wait (200);
+            if (threadShouldExit()) break;
             std::unique_ptr<Job> job;
             { const juce::ScopedLock sl (lock); job = std::move (pending); }
             if (job == nullptr) continue;
@@ -115,7 +124,8 @@ StutterLabAudioProcessor::StutterLabAudioProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       parameters (*this, &undoManager, "STUTTER_LAB_PARAMETERS", createParameterLayout())
 {
-    worker = std::make_unique<RenderWorker> (*this);
+    // Start the render thread lazily on the first render request. Hosts create and
+    // destroy processor instances during scans; they should not spawn idle threads.
 }
 
 StutterLabAudioProcessor::~StutterLabAudioProcessor()
@@ -486,6 +496,18 @@ bool StutterLabAudioProcessor::generate (juce::String& error)
 
     // Keep an active audition running: the worker will hot-swap its audio buffer
     // at the next audio callback when the new render is ready.
+    if (worker == nullptr)
+    {
+        auto candidate = std::make_unique<RenderWorker> (*this);
+        if (! candidate->startThread())
+        {
+            error = "Could not start the background render thread.";
+            renderState.store (RenderState::Failed, std::memory_order_release);
+            return false;
+        }
+        worker = std::move (candidate);
+    }
+
     renderProgress.store (0.0f, std::memory_order_release);
     renderState.store (RenderState::Rendering);
     worker->post (std::move (job));
@@ -494,7 +516,7 @@ bool StutterLabAudioProcessor::generate (juce::String& error)
 
 void StutterLabAudioProcessor::cancelRender()
 {
-    worker->cancelAll();
+    if (worker != nullptr) worker->cancelAll();
     if (renderState.load() == RenderState::Rendering)
     {
         renderProgress.store (0.0f, std::memory_order_release);

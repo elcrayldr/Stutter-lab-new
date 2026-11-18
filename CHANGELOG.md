@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — host compatibility and lifecycle hardening
+- Build: select the static MSVC runtime (/MT; /MTd for Debug) for the VST3 and JUCE targets.
+- Host lifecycle: create the render worker lazily, so plugin scans and instance construction do not spawn idle threads.
+- Thread shutdown: signal cancellation and wait for the render worker to exit before processor members are destroyed; remove the unsafe fixed 4-second shutdown timeout.
+- CI: retain pluginval output under the runner temporary directory and upload it as the `pluginval-logs` artifact even when validation fails.
+- Confirmed during source audit: VST3 product name/path, APVTS UndoManager declaration order, worker-last member order, mono/stereo bus policy and JUCE audio-utils module linkage.
+
+
 ## 0.5.0 (work in progress, not yet built with MSVC)
 - Engine: 16-step pattern with rests and per-step accent (+ intensity), progressive level ramp with curve,
   equal-power fade in/out, resonant LP/HP filter, per-effect on/off, reverb decay separated from size.

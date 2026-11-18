@@ -37,8 +37,18 @@ jobs:
           if ($null -eq $validator) { throw "pluginval.exe was not found in the downloaded archive." }
           $plugin = Join-Path (Get-Location) "build/STUTTER_LAB_artefacts/Release/VST3/StutterLabLdr.vst3"
           if (-not (Test-Path $plugin)) { throw "Built VST3 bundle not found: $plugin" }
-          & $validator.FullName --strictness-level 5 $plugin
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $logDir = Join-Path $env:RUNNER_TEMP "pluginval-logs"
+          New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+          & $validator.FullName --strictness-level 5 --output-dir $logDir $plugin
+          $pluginvalExitCode = $LASTEXITCODE
+          if ($pluginvalExitCode -ne 0) { exit $pluginvalExitCode }
+      - name: Upload pluginval logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pluginval-logs
+          path: ${{ runner.temp }}/pluginval-logs/
+          if-no-files-found: ignore
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
