@@ -31,10 +31,17 @@ juce_add_plugin(STUTTER_LAB
 )
 
 juce_generate_juce_header(STUTTER_LAB)
-target_sources(STUTTER_LAB PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp
-)
+
+option(STUTTERLAB_MINIMAL_DIAGNOSTIC "Build the minimal host-load diagnostic plugin" OFF)
+if(STUTTERLAB_MINIMAL_DIAGNOSTIC)
+    target_sources(STUTTER_LAB PRIVATE Source/DiagnosticProcessor.cpp)
+    message(STATUS "STUTTER LAB: MINIMAL DIAGNOSTIC BUILD (no editor, DSP, parameters or custom state)")
+else()
+    target_sources(STUTTER_LAB PRIVATE
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+    )
+endif()
 target_include_directories(STUTTER_LAB PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/Source"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/Core"
