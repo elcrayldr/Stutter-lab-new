@@ -55,3 +55,5 @@ jobs:
           name: StutterLabLdr-Windows-x64-VST3
           path: build/STUTTER_LAB_artefacts/Release/VST3/
           if-no-files-found: error
+
+# 0.5.1 CI: static MSVC runtime and pluginval diagnostic artifact.
