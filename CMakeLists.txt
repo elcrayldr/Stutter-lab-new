@@ -21,6 +21,7 @@ juce_add_plugin(STUTTER_LAB
     PLUGIN_CODE StLb
     FORMATS VST3
     PRODUCT_NAME "STUTTER LAB"
+    VST3_CATEGORIES Fx
     DESCRIPTION "Capture-based vocal stutter processor"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
@@ -45,6 +46,10 @@ target_compile_definitions(STUTTER_LAB PUBLIC
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
+
+if(MSVC)
+    target_compile_options(STUTTER_LAB PRIVATE /utf-8)
+endif()
 
 target_link_libraries(STUTTER_LAB PRIVATE
     juce::juce_audio_utils
