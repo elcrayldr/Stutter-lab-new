@@ -1,0 +1,4 @@
+CI trigger only. This file does not alter plugin source or runtime behavior.
+Target branch: fix/restore-build-structure
+Target revision before trigger: 0a987f07d63cde833a2631ad64693eeee8071b5d
+Purpose: produce a Windows x64 VST3 artifact and run core tests plus pluginval strictness 5.
