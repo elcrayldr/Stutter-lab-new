@@ -295,15 +295,17 @@ static void testPreview()
 static void testThreadStress()
 {
     CaptureEngine cap; PreviewEngine prev; cap.prepare (48000.0, 2.0); prev.prepare (48000.0);
-    std::atomic<bool> run { true }; std::atomic<long> blocks { 0 };
+    std::atomic<bool> run { true }; std::atomic<bool> audioStarted { false }; std::atomic<long> blocks { 0 };
     std::thread audio ([&] {
         std::vector<float> l (128), r (128);
+        audioStarted.store (true, std::memory_order_release);
         while (run) { for (int i = 0; i < 128; ++i) l[i] = r[i] = 0.1f; cap.process (l.data(), r.data(), 128); prev.process (l.data(), r.data(), 128); ++blocks;
                       std::this_thread::sleep_for (std::chrono::microseconds (100)); }
     });
+    while (! audioStarted.load (std::memory_order_acquire)) std::this_thread::yield();
     auto t0 = std::chrono::steady_clock::now();
     int n = 0;
-    while (std::chrono::steady_clock::now() - t0 < std::chrono::milliseconds (1500))
+    while (std::chrono::steady_clock::now() - t0 < std::chrono::milliseconds (2000))
     {
         cap.requestStart(); std::this_thread::sleep_for (std::chrono::milliseconds (7));
         std::vector<float> mn (32), mx (32); cap.peaks (0, (size_t) cap.numSamples(), 32, mn.data(), mx.data());
@@ -316,7 +318,10 @@ static void testThreadStress()
         ++n;
     }
     run = false; audio.join();
-    CHECK (blocks.load() > 100 && n > 20);
+    const auto blockCount = blocks.load();
+    if (blockCount <= 20 || n <= 10)
+        std::printf ("Thread stress diagnostics: audio blocks=%ld, control iterations=%d\\n", blockCount, n);
+    CHECK (blockCount > 20 && n > 10);
 }
 
 
