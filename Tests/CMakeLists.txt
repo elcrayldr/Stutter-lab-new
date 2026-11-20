@@ -1,0 +1,6 @@
+find_package(Threads REQUIRED)
+add_executable(StutterLabCoreTests ../CoreTests.cpp)
+target_compile_features(StutterLabCoreTests PRIVATE cxx_std_17)
+target_include_directories(StutterLabCoreTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(StutterLabCoreTests PRIVATE Threads::Threads)
+add_test(NAME StutterLabCoreTests COMMAND StutterLabCoreTests)
