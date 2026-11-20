@@ -274,7 +274,8 @@ StutterLabAudioProcessorEditor::Knob& StutterLabAudioProcessorEditor::addKnob (c
     auto k = std::make_unique<Knob>();
     k->s.setRotaryParameters (juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
     k->s.setPopupDisplayEnabled (true, true, this);
-    k->s.setDoubleClickReturnToDefaultValue (true);
+    if (auto* parameter = processor.getParameters().getParameter (id))
+        k->s.setDoubleClickReturnValue (true, parameter->getDefaultValue());
     k->l.setText (label.trim(), juce::dontSendNotification);
     k->l.setFont (fnt (11.0f)); k->l.setColour (juce::Label::textColourId, kInk);
     k->l.setJustificationType (juce::Justification::centred); k->l.setInterceptsMouseClicks (false, false);
