@@ -3,10 +3,10 @@
 #include <atomic>
 #include <memory>
 #include <vector>
-#include "Core/CaptureEngine.h"
-#include "Core/PreviewEngine.h"
-#include "Core/StutterEngine.h"
-#include "Core/WavEncoder.h"
+#include "CaptureEngine.h"
+#include "PreviewEngine.h"
+#include "StutterEngine.h"
+#include "WavEncoder.h"
 
 class StutterLabAudioProcessor final : public juce::AudioProcessor
 {
