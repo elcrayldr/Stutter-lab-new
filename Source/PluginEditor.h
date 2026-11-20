@@ -89,6 +89,8 @@ private:
     int lastCaptureSamples = -1, lastW = 0;
     uint64_t shownRenderId = 0;
     bool wasRecording = false, draggingSelection = false, dragStarted = false, draggingSteps = false;
+    double lastEffectiveBpm = -1.0;
+    bool lastHostTempoAvailable = false;
     std::atomic<bool> autoRenderPending { false };
     int autoRenderCountdown = 0;
     bool autoRenderArmed = false;
