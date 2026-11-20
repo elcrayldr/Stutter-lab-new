@@ -320,7 +320,7 @@ static void testThreadStress()
     run = false; audio.join();
     const auto blockCount = blocks.load();
     if (blockCount <= 20 || n <= 10)
-        std::printf ("Thread stress diagnostics: audio blocks=%ld, control iterations=%d\\n", blockCount, n);
+        std::printf ("Thread stress diagnostics: audio blocks=%ld, control iterations=%d\n", blockCount, n);
     CHECK (blockCount > 20 && n > 10);
 }
 
