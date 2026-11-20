@@ -599,6 +599,16 @@ void StutterLabAudioProcessorEditor::timerCallback()
     vuIn.setLevel (processor.getInputPeak());
     vuOut.setLevel (processor.getOutputPeak());
 
+    // A host tempo change alters every rhythmic division. Rebuild the offline result
+    // after the tempo settles instead of leaving a stale render at the previous BPM.
+    const bool hostTempoNow = processor.hostTempoAvailable();
+    const double effectiveBpmNow = processor.getEffectiveBpm();
+    if (lastEffectiveBpm > 0.0 && processor.getCapturedSamples() >= 64
+        && (std::abs (effectiveBpmNow - lastEffectiveBpm) > 0.05 || hostTempoNow != lastHostTempoAvailable))
+        autoRenderPending.store (true, std::memory_order_release);
+    lastEffectiveBpm = effectiveBpmNow;
+    lastHostTempoAvailable = hostTempoNow;
+
     const bool rec = processor.isCapturing();
     if (wasRecording && ! rec)                                            // take just ended: select all and schedule first render
     {
