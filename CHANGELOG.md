@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 — host-tempo render synchronization
+- Rebuild the offline stutter result when the DAW host tempo changes, using the updated tempo for divisions and tempo-synchronised delay.
+- Keep the change debounced by the existing render scheduler; no render work is performed on the audio thread.
+
+
 ## 0.5.2 — restore VST3 identity and conservative Windows linkage
 - Restore the original VST3 product name `STUTTER LAB` and matching bundle filename.
 - Remove the forced static MSVC runtime override; use the toolchain/CMake default runtime configuration.
