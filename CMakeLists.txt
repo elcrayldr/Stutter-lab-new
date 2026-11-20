@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
-project(STUTTER_LAB VERSION 0.5.0)
+project(STUTTER_LAB VERSION 0.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -29,19 +30,15 @@ juce_add_plugin(STUTTER_LAB
     COPY_PLUGIN_AFTER_BUILD FALSE
 )
 
-# Generate JuceHeader.h for the source files that include it.
 juce_generate_juce_header(STUTTER_LAB)
 
 target_sources(STUTTER_LAB PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp
+    PluginProcessor.cpp
+    PluginProcessor.h
+    PluginEditor.cpp
+    PluginEditor.h
 )
-
-option(STUTTERLAB_BUILD_TESTS "Build the JUCE-free core tests" OFF)
-if(STUTTERLAB_BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(Tests)
-endif()
+target_include_directories(STUTTER_LAB PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_compile_definitions(STUTTER_LAB PUBLIC
     JUCE_WEB_BROWSER=0
@@ -56,3 +53,9 @@ target_link_libraries(STUTTER_LAB PRIVATE
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
 )
+
+option(STUTTERLAB_BUILD_TESTS "Build the JUCE-free core tests" OFF)
+if(STUTTERLAB_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(Tests)
+endif()
