@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.3 — host-tempo render synchronization
+- Rebuild the offline stutter result when the DAW host tempo changes, using the updated tempo for divisions and tempo-synchronised delay.
+- Keep the change debounced by the existing render scheduler; no render work is performed on the audio thread.
+
+
+## 0.5.2 — restore VST3 identity and conservative Windows linkage
+- Restore the original VST3 product name `STUTTER LAB` and matching bundle filename.
+- Remove the forced static MSVC runtime override; use the toolchain/CMake default runtime configuration.
+- Keep the render-worker lifecycle hardening from 0.5.1.
+- Keep the background worker lazy-start behavior and safe shutdown.
+- Keep CI pluginval diagnostics and core tests; core tests remain opt-in for normal project builds and are explicitly enabled in CI.
+
+## 0.5.1 — host compatibility and lifecycle hardening
+- Build: select the static MSVC runtime (/MT; /MTd for Debug) for the VST3 and JUCE targets.
+- Host lifecycle: create the render worker lazily, so plugin scans and instance construction do not spawn idle threads.
+- Thread shutdown: signal cancellation and wait for the render worker to exit before processor members are destroyed; remove the unsafe fixed 4-second shutdown timeout.
+- CI: retain pluginval output under the runner temporary directory and upload it as the `pluginval-logs` artifact even when validation fails.
+- Confirmed during source audit: VST3 product name/path, APVTS UndoManager declaration order, worker-last member order, mono/stereo bus policy and JUCE audio-utils module linkage.
+
 ## 0.5.0 (work in progress, not yet built with MSVC)
 - Engine: 16-step pattern with rests and per-step accent (+ intensity), progressive level ramp with curve,
   equal-power fade in/out, resonant LP/HP filter, per-effect on/off, reverb decay separated from size.
@@ -9,7 +28,6 @@
 - UI: new hardware-style panel (VU meters, illuminated buttons, LED read-out, editable pattern display).
 - Tests: +29 core checks (pattern, movement, filter, switches, stereo, empty/tiny/silent input, 22.05-192 kHz).
 - Removed from the UI (still in the processor): store A/B, A/B toggle. Per-step pitch was NOT implemented.
-
 
 ## 0.4.0 — expanded production workflow
 

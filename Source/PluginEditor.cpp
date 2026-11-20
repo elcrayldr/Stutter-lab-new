@@ -3,10 +3,10 @@
 
 namespace
 {
-const juce::Colour kPanelTop (0xffb9b6ab), kPanelBot (0xff9c998f), kBezel (0xff17181b), kInk (0xff25241f), kInkSoft (0xff5a574d),
-                   kAmberLit (0xfff6c24a), kAmberLitLo (0xffd9921a), kAmberOff (0xffab7e25), kAmberOffLo (0xff7d5a16),
-                   kGreenLit (0xff4fe08a), kGreenOff (0xff2e7f4f), kRedLit (0xffff5a46), kRedOff (0xff8a3328),
-                   kLedBg (0xff1b0505), kLedFg (0xffff4a33), kScreen (0xff0d1014), kCream (0xffeae6d6);
+const juce::Colour kPanelTop (0xff383a3d), kPanelBot (0xff202225), kBezel (0xff0d0e10), kInk (0xffe8e2d2), kInkSoft (0xff99968d),
+                   kAmberLit (0xffffc45a), kAmberLitLo (0xffbd7922), kAmberOff (0xff414348), kAmberOffLo (0xff25272a),
+                   kGreenLit (0xffa8d28b), kGreenOff (0xff35443a), kRedLit (0xffff765f), kRedOff (0xff4b302d),
+                   kLedBg (0xff101113), kLedFg (0xffffbd57), kScreen (0xff101214), kCream (0xffe8e2d2);
 
 juce::Font fnt (float h, bool bold = true) { return juce::Font (juce::FontOptions (h, bold ? juce::Font::bold : juce::Font::plain)); }
 juce::Font mono (float h) { return juce::Font (juce::FontOptions ("Consolas", h, juce::Font::bold)); }
@@ -86,7 +86,7 @@ void slui::HardwareLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::B
 
 void slui::HardwareLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& bt, bool, bool)
 {
-    g.setColour (bt.isEnabled() ? juce::Colour (0xff2a1c04) : juce::Colour (0xff55534b));
+    g.setColour (! bt.isEnabled() ? juce::Colour (0xff777777) : (bt.getToggleState() ? juce::Colour (0xff191a1c) : kCream));
     g.setFont (fnt (juce::jlimit (10.0f, 13.0f, (float) bt.getHeight() * 0.42f)));
     g.drawText (bt.getButtonText(), bt.getLocalBounds().reduced (2, 0), juce::Justification::centred, true);
 }
@@ -115,56 +115,65 @@ void slui::VuMeter::setLevel (float peak)
 
 void slui::VuMeter::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds().toFloat().reduced (2.0f);
-    g.setColour (juce::Colour (0xff2c2a25)); g.fillRoundedRectangle (b, 6.0f);                // bezel
-    auto face = b.reduced (5.0f);
-    g.setGradientFill (juce::ColourGradient (kCream, face.getX(), face.getY(), juce::Colour (0xffcfcab4), face.getX(), face.getBottom(), false));
-    g.fillRoundedRectangle (face, 3.0f);
+    auto outer = getLocalBounds().toFloat().reduced (2.0f);
+    g.setColour (juce::Colour (0xff08090a));
+    g.fillRoundedRectangle (outer.expanded (1.5f), 4.0f);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff202226), outer.getX(), outer.getY(),
+                                             juce::Colour (0xff101113), outer.getRight(), outer.getBottom(), false));
+    g.fillRoundedRectangle (outer, 4.0f);
+    g.setColour (juce::Colour (0xff55565a));
+    g.drawRoundedRectangle (outer.reduced (0.5f), 4.0f, 1.0f);
 
-    juce::Graphics::ScopedSaveState ss (g);
-    g.reduceClipRegion (face.toNearestInt());
-    const auto pivot = juce::Point<float> (face.getCentreX(), face.getBottom() + face.getHeight() * 0.10f);
-    const float R = face.getHeight() * 0.92f, sweep = 0.92f;
-    auto at = [&] (float v, float r) { const float a = -sweep + 2.0f * sweep * v; return juce::Point<float> (pivot.x + std::sin (a) * r, pivot.y - std::cos (a) * r); };
+    auto face = outer.reduced (7.0f);
+    g.setColour (juce::Colour (0xff090a0b));
+    g.fillRoundedRectangle (face, 2.0f);
+    g.setColour (kInk);
+    g.setFont (fnt (10.0f));
+    g.drawText (title, face.removeFromTop (17.0f).toNearestInt(), juce::Justification::centred);
+    
+    const float db = needle <= 0.001f ? -60.0f : -30.0f + needle * 33.0f;
+    g.setColour (kLedFg);
+    g.setFont (mono (11.0f));
+    g.drawText (db <= -59.0f ? "-INF" : juce::String (db, 1), face.removeFromTop (17.0f).toNearestInt(), juce::Justification::centred);
 
-    const float v0 = 30.0f / 33.0f;                                                         // 0 dBFS
-    juce::Path red;                                                                         // red zone
-    for (int i = 0; i <= 12; ++i) { const auto p = at (v0 + (1.0f - v0) * (float) i / 12.0f, R); if (i == 0) red.startNewSubPath (p); else red.lineTo (p); }
-    g.setColour (juce::Colour (0xffc23a2b)); g.strokePath (red, juce::PathStrokeType (3.0f));
-    juce::Path arc;
-    for (int i = 0; i <= 40; ++i) { const auto p = at (v0 * (float) i / 40.0f, R); if (i == 0) arc.startNewSubPath (p); else arc.lineTo (p); }
-    g.setColour (kInk); g.strokePath (arc, juce::PathStrokeType (1.4f));
+    auto bars = face.reduced (10.0f, 5.0f);
+    constexpr int segments = 16;
+    constexpr float gap = 2.0f;
+    const float segH = juce::jmax (2.0f, (bars.getHeight() - gap * (segments - 1)) / (float) segments);
+    const float segW = juce::jmin (22.0f, bars.getWidth());
+    const float x = bars.getCentreX() - segW * 0.5f;
+    const int lit = juce::jlimit (0, segments, (int) std::ceil (needle * (float) segments));
 
-    const struct { float db; const char* txt; } ticks[] = { { -30, "-30" }, { -20, "-20" }, { -10, "-10" }, { -6, "-6" }, { -3, "-3" }, { 0, "0" }, { 3, "+3" } };
-    g.setFont (fnt (10.0f, false));
-    for (auto& t : ticks)
+    for (int i = 0; i < segments; ++i)
     {
-        const float v = (t.db + 30.0f) / 33.0f;
-        const auto p0 = at (v, R), p1 = at (v, R - 7.0f), tp = at (v, R - 18.0f);
-        g.setColour (t.db > 0.5f ? juce::Colour (0xffc23a2b) : kInk);
-        g.drawLine (p0.x, p0.y, p1.x, p1.y, 1.4f);
-        g.drawText (t.txt, juce::Rectangle<float> (26, 12).withCentre (tp).toNearestInt(), juce::Justification::centred);
+        const float y = bars.getBottom() - segH - (float) i * (segH + gap);
+        const auto seg = juce::Rectangle<float> (x, y, segW, segH);
+        juce::Colour on = i < 11 ? juce::Colour (0xff78b86b)
+                         : i < 14 ? juce::Colour (0xffffc45a)
+                                  : juce::Colour (0xffef6556);
+        const juce::Colour off = i < 11 ? juce::Colour (0xff1b3022)
+                              : i < 14 ? juce::Colour (0xff382d19)
+                                       : juce::Colour (0xff3b201e);
+        g.setColour (i < lit ? on : off);
+        g.fillRoundedRectangle (seg, 1.0f);
+        if (i < lit)
+        {
+            g.setColour (on.withAlpha (0.18f));
+            g.fillRoundedRectangle (seg.expanded (1.0f, 0.5f), 1.5f);
+        }
     }
-    g.setColour (kInk); g.setFont (fnt (12.0f));
-    g.drawText (title, face.withTrimmedTop (face.getHeight() * 0.58f).toNearestInt(), juce::Justification::centredTop);
-    g.setFont (fnt (9.0f, false)); g.setColour (kInkSoft);
-    g.drawText ("dBFS PEAK", face.withTrimmedTop (face.getHeight() * 0.76f).toNearestInt(), juce::Justification::centredTop);
 
-    const auto tip = at (needle, R * 0.97f);                                                // needle
-    g.setColour (juce::Colours::black.withAlpha (0.25f)); g.drawLine (pivot.x + 1, pivot.y + 1, tip.x + 1.5f, tip.y + 1.5f, 1.6f);
-    g.setColour (juce::Colour (0xff111111)); g.drawLine (pivot.x, pivot.y, tip.x, tip.y, 1.5f);
-    g.setColour (clipHold > 0.05f ? kRedLit.withAlpha (clipHold) : juce::Colour (0x00000000));
-    g.fillEllipse (juce::Rectangle<float> (7, 7).withCentre ({ face.getRight() - 12.0f, face.getY() + 12.0f }));   // clip lamp
+    g.setColour (clipHold > 0.05f ? kRedLit.withAlpha (clipHold) : juce::Colour (0xff3b201e));
+    g.fillEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ outer.getRight() - 9.0f, outer.getY() + 9.0f }));
 }
-
 //==============================================================================
 StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
     setLookAndFeel (&lnf);
-    setSize (1180, 780);
+    setSize (1160, 760);
     setResizable (true, true);
-    setResizeLimits (980, 680, 1900, 1250);
+    setResizeLimits (960, 660, 1900, 1250);
 
     addAndMakeVisible (vuIn); addAndMakeVisible (vuOut);
 
@@ -180,38 +189,7 @@ StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioP
     };
     clearButton->onClick = [this] { processor.clearCapture(); processor.resetClip(); };
 
-    // --- header: presets
-    presetBox.addItemList ({ "INIT", "TIGHT STUTTER", "TRAP ROLLS", "VOCAL GLITCH", "REVERSE PULSE", "PROGRESSIVE RISER", "RHYTHMIC GATE", "FAST REPEATS", "BROKEN RHYTHM" }, 1);
-    presetBox.setSelectedId (1, juce::dontSendNotification);
-    presetBox.onChange = [this] { processor.loadFactoryPreset (presetBox.getSelectedId() - 1); };
-    addAndMakeVisible (presetBox);
-    savePresetButton = &addPush ("SAVE"); loadPresetButton = &addPush ("LOAD"); undoButton = &addPush ("UNDO");
-    undoButton->onClick = [this] { if (! processor.undoParameterChange()) infoText = "Nothing to undo."; };
-    savePresetButton->onClick = [this]
-    {
-        const auto def = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("STUTTER_LAB_Preset.slpreset");
-        fileChooser = std::make_unique<juce::FileChooser> ("Save STUTTER LAB preset", def, "*.slpreset");
-        juce::Component::SafePointer<StutterLabAudioProcessorEditor> safe (this);
-        fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
-            [safe] (const juce::FileChooser& fc)
-            {
-                if (safe == nullptr || fc.getResult() == juce::File()) return;
-                juce::String err;
-                safe->infoText = safe->processor.saveUserPreset (fc.getResult().withFileExtension ("slpreset"), err) ? "Preset saved." : err;
-            });
-    };
-    loadPresetButton->onClick = [this]
-    {
-        fileChooser = std::make_unique<juce::FileChooser> ("Load STUTTER LAB preset", juce::File(), "*.slpreset");
-        juce::Component::SafePointer<StutterLabAudioProcessorEditor> safe (this);
-        fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-            [safe] (const juce::FileChooser& fc)
-            {
-                if (safe == nullptr || fc.getResult() == juce::File()) return;
-                juce::String err;
-                safe->infoText = safe->processor.loadUserPreset (fc.getResult(), err) ? "Preset loaded." : err;
-            });
-    };
+    // --- header: compact transport status and host tempo
     statusLabel.setFont (fnt (12.0f)); statusLabel.setColour (juce::Label::textColourId, kInk);
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (statusLabel);
@@ -234,7 +212,11 @@ StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioP
     addKnob ("swing", "SWING"); addKnob ("humanize", "HUMANIZE"); addKnob ("steps", "LENGTH");
     addToggle ("scan", "SCAN");
     newSeedButton = &addPush ("NEW SEED");
-    newSeedButton->onClick = [this] { processor.seed.store ((int) juce::Random::getSystemRandom().nextInt()); };
+    newSeedButton->onClick = [this]
+    {
+        processor.seed.store ((int) juce::Random::getSystemRandom().nextInt());
+        autoRenderPending.store (true, std::memory_order_release);
+    };
 
     // --- MOVEMENT
     addKnob ("rampStart", "START"); addKnob ("rampEnd", "END"); addKnob ("rampCurve", "CURVE");
@@ -249,15 +231,25 @@ StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioP
     addToggle ("delayOn", "DELAY"); addKnob ("delayFeedback", "FEEDBACK"); addKnob ("delayMix", "MIX");
     addToggle ("reverbOn", "REVERB"); addKnob ("reverbSize", "SIZE"); addKnob ("reverbDecay", "DECAY"); addKnob ("reverbMix", "MIX ");
 
-    // --- OUTPUT
-    generateButton = &addPush ("GENERATE"); generateButton->getProperties().set ("tone", "green");
-    playOrigButton = &addPush ("PLAY ORIGINAL"); playProcButton = &addPush ("PLAY PROCESSED");
-    exportButton = &addPush ("EXPORT WAV");
+    // --- OUTPUT: one audition control; the only way out is drag-to-DAW
+    previewButton = &addPush ("PREVIEW"); previewButton->getProperties().set ("tone", "green");
     addToggle ("loop", "LOOP");
-    generateButton->onClick = [this] { doGenerate(); };
-    playOrigButton->onClick = [this] { if (processor.isPreviewPlaying() && previewIsOriginal) processor.stopPreview(); else { previewIsOriginal = true; processor.startPreview (true); } };
-    playProcButton->onClick = [this] { if (processor.isPreviewPlaying() && ! previewIsOriginal) processor.stopPreview(); else { previewIsOriginal = false; processor.startPreview (false); } };
-    exportButton->onClick = [this] { doExport(); };
+    previewButton->onClick = [this]
+    {
+        if (processor.isPreviewPlaying()) processor.stopPreview();
+        else processor.startPreview (false);
+    };
+
+    static const char* parameterIds[] = {
+        "repeats", "division", "direction", "scan", "swing", "gate", "humanize", "drive", "phone",
+        "pitch", "formant", "delayDivision", "delayMix", "delayFeedback", "reverbMix", "reverbSize",
+        "bpm", "loop", "steps", "intensity", "rampStart", "rampEnd", "rampCurve", "fadeIn", "fadeOut",
+        "filterOn", "filterType", "filterCutoff", "filterRes", "delayOn", "reverbOn", "reverbDecay",
+        "step1", "step2", "step3", "step4", "step5", "step6", "step7", "step8",
+        "step9", "step10", "step11", "step12", "step13", "step14", "step15", "step16"
+    };
+    for (auto* id : parameterIds) processor.getParameters().addParameterListener (id, this);
+    if (processor.getCapturedSamples() >= 64) autoRenderPending.store (true, std::memory_order_release); // rebuild a recalled take after project load
 
     refreshStatus();
     startTimerHz (20);
@@ -266,6 +258,15 @@ StutterLabAudioProcessorEditor::StutterLabAudioProcessorEditor (StutterLabAudioP
 StutterLabAudioProcessorEditor::~StutterLabAudioProcessorEditor()
 {
     stopTimer();
+    static const char* parameterIds[] = {
+        "repeats", "division", "direction", "scan", "swing", "gate", "humanize", "drive", "phone",
+        "pitch", "formant", "delayDivision", "delayMix", "delayFeedback", "reverbMix", "reverbSize",
+        "bpm", "loop", "steps", "intensity", "rampStart", "rampEnd", "rampCurve", "fadeIn", "fadeOut",
+        "filterOn", "filterType", "filterCutoff", "filterRes", "delayOn", "reverbOn", "reverbDecay",
+        "step1", "step2", "step3", "step4", "step5", "step6", "step7", "step8",
+        "step9", "step10", "step11", "step12", "step13", "step14", "step15", "step16"
+    };
+    for (auto* id : parameterIds) processor.getParameters().removeParameterListener (id, this);
     setLookAndFeel (nullptr);
 }
 
@@ -274,7 +275,6 @@ StutterLabAudioProcessorEditor::Knob& StutterLabAudioProcessorEditor::addKnob (c
     auto k = std::make_unique<Knob>();
     k->s.setRotaryParameters (juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
     k->s.setPopupDisplayEnabled (true, true, this);
-    k->s.setDoubleClickReturnToDefaultValue (true);
     k->l.setText (label.trim(), juce::dontSendNotification);
     k->l.setFont (fnt (11.0f)); k->l.setColour (juce::Label::textColourId, kInk);
     k->l.setJustificationType (juce::Justification::centred); k->l.setInterceptsMouseClicks (false, false);
@@ -340,20 +340,16 @@ void StutterLabAudioProcessorEditor::resized()
     // header
     {
         auto h = headerArea;
-        h.removeFromLeft (290);                                                              // silkscreen title is painted
-        ledArea = h.removeFromRight (230).reduced (0, 4);
-        auto bpm = h.removeFromRight (62); knobs.at ("bpm")->s.setBounds (bpm.withTrimmedBottom (14).reduced (4)); knobs.at ("bpm")->l.setBounds (bpm.removeFromBottom (14));
-        presetBox.setBounds (h.removeFromLeft (190).reduced (2, 12));
-        savePresetButton->setBounds (h.removeFromLeft (54).reduced (2, 12));
-        loadPresetButton->setBounds (h.removeFromLeft (54).reduced (2, 12));
-        undoButton->setBounds (h.removeFromLeft (54).reduced (2, 12));
-        statusLabel.setBounds (h.reduced (8, 10));
+        h.removeFromLeft (300);                                                              // silkscreen title is painted
+        ledArea = h.removeFromRight (190).reduced (0, 4);
+        auto bpm = h.removeFromRight (68); knobs.at ("bpm")->s.setBounds (bpm.withTrimmedBottom (14).reduced (4)); knobs.at ("bpm")->l.setBounds (bpm.removeFromBottom (14));
+        statusLabel.setBounds (h.reduced (12, 10));
     }
 
     // display row: [VU in] [source + pattern screen] [VU out]
     {
         auto d = displayArea;
-        const int vuW = juce::jmin (230, (int) (d.getWidth() * 0.19f));
+        const int vuW = juce::jmin (78, juce::jmax (64, (int) (d.getWidth() * 0.075f)));
         vuIn.setBounds (d.removeFromLeft (vuW));
         vuOut.setBounds (d.removeFromRight (vuW));
         d.reduce (8, 0);
@@ -425,32 +421,27 @@ void StutterLabAudioProcessorEditor::resized()
     }
     {   // OUTPUT
         auto c = content (outGroup);
-        const int bh = juce::jmin (44, c.getHeight() / 6);
-        generateButton->setBounds (c.removeFromTop (bh + 8).reduced (2));
-        c.removeFromTop (4);
-        playOrigButton->setBounds (c.removeFromTop (bh).reduced (2));
-        playProcButton->setBounds (c.removeFromTop (bh).reduced (2));
+        const int bh = juce::jmin (44, c.getHeight() / 5);
+        previewButton->setBounds (c.removeFromTop (bh + 4).reduced (2));
         toggles.at ("loop")->b.setBounds (c.removeFromTop (bh).reduced (2));
-        exportButton->setBounds (c.removeFromTop (bh).reduced (2));
-        dragArea = c.reduced (2, 6);
+        dragArea = c.reduced (2, 8);
     }
 }
 
 //==============================================================================
 void StutterLabAudioProcessorEditor::drawGroup (juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title)
 {
-    const auto f = r.toFloat().reduced (1.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.28f)); g.drawRoundedRectangle (f, 5.0f, 1.2f);             // engraved outline
-    g.setColour (juce::Colours::white.withAlpha (0.35f)); g.drawRoundedRectangle (f.translated (0.0f, 1.0f), 5.0f, 1.0f);
-    g.setFont (fnt (12.0f));
-    const int tw = (int) fnt (12.0f).getStringWidthFloat (title) + 18;
-    const auto t = juce::Rectangle<int> (tw, 18).withCentre ({ r.getCentreX(), r.getY() + 14 });
-    g.setColour (kInk); g.drawText (title, t, juce::Justification::centred);
-    g.setColour (kInkSoft);
-    g.drawLine ((float) r.getX() + 14, (float) t.getCentreY(), (float) t.getX(), (float) t.getCentreY(), 1.0f);
-    g.drawLine ((float) t.getRight(), (float) t.getCentreY(), (float) r.getRight() - 14, (float) t.getCentreY(), 1.0f);
+    const float y = (float) r.getY() + 19.0f;
+    g.setColour (juce::Colour (0xff111214).withAlpha (0.75f));
+    g.drawHorizontalLine ((int) y + 1, (float) r.getX() + 5.0f, (float) r.getRight() - 5.0f);
+    g.setColour (kPanelTop);
+    g.fillRect (juce::Rectangle<float> ((float) r.getX() + 8.0f, y - 8.0f,
+                                         fnt (11.0f).getStringWidthFloat (title) + 14.0f, 16.0f));
+    g.setColour (kAmberLit);
+    g.setFont (fnt (10.5f));
+    g.drawText (title, juce::Rectangle<int> (r.getX() + 12, r.getY() + 4, r.getWidth() - 24, 17),
+                juce::Justification::centredLeft);
 }
-
 void StutterLabAudioProcessorEditor::drawPeaks (juce::Graphics& g, juce::Rectangle<int> r, const std::vector<float>& mm, juce::Colour c)
 {
     if (mm.size() < 2 || r.isEmpty()) return;
@@ -566,10 +557,10 @@ void StutterLabAudioProcessorEditor::paint (juce::Graphics& g)
     }
 
     // header silkscreen
-    g.setColour (kInk); g.setFont (fnt (30.0f));
-    g.drawText ("STUTTER LAB", headerArea.withWidth (290).withTrimmedBottom (18), juce::Justification::centredLeft);
-    g.setColour (kInkSoft); g.setFont (fnt (10.0f, false));
-    g.drawText ("CRAY LDR AUDIO SOFTWARE  -  VOCAL STUTTER INSTRUMENT", headerArea.withWidth (320).withTrimmedTop (headerArea.getHeight() - 20), juce::Justification::centredLeft);
+    g.setColour (kCream); g.setFont (fnt (29.0f));
+    g.drawText ("STUTTER LAB", headerArea.withWidth (300).withTrimmedBottom (18), juce::Justification::centredLeft);
+    g.setColour (kAmberLit); g.setFont (fnt (9.5f, false));
+    g.drawText ("CRAY LDR  /  VOCAL RHYTHM DESIGNER", headerArea.withWidth (320).withTrimmedTop (headerArea.getHeight() - 20), juce::Justification::centredLeft);
 
     // LED read-out
     g.setColour (juce::Colour (0xff2c2a25)); g.fillRoundedRectangle (ledArea.toFloat().expanded (2.0f), 5.0f);
@@ -589,10 +580,10 @@ void StutterLabAudioProcessorEditor::paint (juce::Graphics& g)
     drawEnvelope (g, envArea);
 
     // OUTPUT drag handle + render info
-    const bool ready = processor.hasRender();
+    const bool ready = processor.hasRender() && ! autoRenderPending.load() && ! autoRenderArmed;
     g.setColour (ready ? juce::Colour (0xff2c2a25) : juce::Colour (0xff77756c)); g.fillRoundedRectangle (dragArea.toFloat(), 5.0f);
     g.setColour (ready ? kAmberLit : juce::Colour (0xff9a988f)); g.setFont (fnt (12.0f));
-    g.drawText ("DRAG TO DAW", dragArea.withTrimmedBottom (dragArea.getHeight() / 3), juce::Justification::centred);
+    g.drawText (ready ? "DRAG RESULT TO DAW" : "WAITING FOR RENDER", dragArea.withTrimmedBottom (dragArea.getHeight() / 3), juce::Justification::centred);
     if (ready)
     {
         g.setColour (kCream); g.setFont (fnt (9.5f, false));
@@ -608,13 +599,46 @@ void StutterLabAudioProcessorEditor::timerCallback()
     vuIn.setLevel (processor.getInputPeak());
     vuOut.setLevel (processor.getOutputPeak());
 
+    // A host tempo change alters every rhythmic division. Rebuild the offline result
+    // after the tempo settles instead of leaving a stale render at the previous BPM.
+    const bool hostTempoNow = processor.hostTempoAvailable();
+    const double effectiveBpmNow = processor.getEffectiveBpm();
+    if (lastEffectiveBpm > 0.0 && processor.getCapturedSamples() >= 64
+        && (std::abs (effectiveBpmNow - lastEffectiveBpm) > 0.05 || hostTempoNow != lastHostTempoAvailable))
+        autoRenderPending.store (true, std::memory_order_release);
+    lastEffectiveBpm = effectiveBpmNow;
+    lastHostTempoAvailable = hostTempoNow;
+
     const bool rec = processor.isCapturing();
-    if (wasRecording && ! rec)                                            // take just ended: select all of it
+    if (wasRecording && ! rec)                                            // take just ended: select all and schedule first render
     {
         processor.setSelection (0.0, processor.getCaptureSeconds());
+        juce::File archivedCapture;
+        juce::String archiveError;
+        if (processor.archiveCapture (archivedCapture, archiveError))
+            infoText = "CAPTURE SAVED  /  " + archivedCapture.getFileName();
+        else
+            infoText = archiveError;
         lastCaptureSamples = -1;
+        autoRenderPending.store (true, std::memory_order_release);
     }
     wasRecording = rec;
+
+    if (autoRenderPending.exchange (false, std::memory_order_acq_rel))
+    {
+        autoRenderCountdown = 7;                                           // 350 ms debounce after the last control change
+        autoRenderArmed = true;
+    }
+    if (autoRenderArmed && autoRenderCountdown > 0) --autoRenderCountdown;
+    if (autoRenderArmed && autoRenderCountdown == 0 && ! rec && processor.getCapturedSamples() >= 64)
+    {
+        if (processor.getRenderState() != StutterLabAudioProcessor::RenderState::Rendering)
+        {
+            autoRenderArmed = false;
+            doGenerate();
+        }
+        else autoRenderCountdown = 1;                                      // wait for the in-flight render, then rebuild
+    }
 
     const int samples = processor.getCapturedSamples();
     if (! rec && (samples != lastCaptureSamples || waveArea.getWidth() != lastW))
@@ -639,16 +663,11 @@ void StutterLabAudioProcessorEditor::timerCallback()
     for (int i = 0; i < 2; ++i) filterTypeButtons[i]->setToggleState (ft == i, juce::dontSendNotification);
     captureButton->setToggleState (rec, juce::dontSendNotification);
     const bool playing = processor.isPreviewPlaying();
-    playOrigButton->setToggleState (playing && previewIsOriginal, juce::dontSendNotification);
-    playProcButton->setToggleState (playing && ! previewIsOriginal, juce::dontSendNotification);
+    previewButton->setToggleState (playing, juce::dontSendNotification);
+    previewButton->setButtonText (playing ? "STOP PREVIEW" : "PREVIEW");
     const bool rendering = processor.getRenderState() == StutterLabAudioProcessor::RenderState::Rendering;
-    generateButton->setToggleState (rendering, juce::dontSendNotification);
-    generateButton->setButtonText (rendering ? "RENDERING " + juce::String ((int) (processor.getRenderProgress() * 100.0f)) + "%" : "GENERATE");
     stopButton->setButtonText (rendering ? "CANCEL" : "STOP");
-    playOrigButton->setEnabled (processor.hasRender());
-    playProcButton->setEnabled (processor.hasRender());
-    exportButton->setEnabled (processor.hasRender());
-    generateButton->setEnabled (! rec);
+    previewButton->setEnabled (processor.hasRender() && ! autoRenderPending.load() && ! autoRenderArmed);
     knobs.at ("bpm")->s.setEnabled (! processor.hostTempoAvailable());
     refreshStatus();
     repaint();
@@ -658,10 +677,11 @@ void StutterLabAudioProcessorEditor::refreshStatus()
 {
     using RS = StutterLabAudioProcessor::RenderState;
     juce::String s;
-    if (processor.isCapturing()) s = "RECORDING  " + juce::String (processor.getCaptureSeconds(), 1) + " s";
-    else if (processor.getRenderState() == RS::Rendering) s = "RENDERING";
-    else if (processor.isPreviewPlaying()) s = "PLAYING";
-    else s = "READY  |  take " + juce::String (processor.getCaptureSeconds(), 2) + " s  |  selection "
+    if (processor.isCapturing()) s = "CAPTURING  " + juce::String (processor.getCaptureSeconds(), 1) + " s";
+    else if (processor.getRenderState() == RS::Rendering) s = "BUILDING STUTTER  " + juce::String ((int) (processor.getRenderProgress() * 100.0f)) + "%";
+    else if (processor.isPreviewPlaying()) s = "AUDITIONING RESULT";
+    else if (autoRenderArmed) s = "UPDATING RESULT";
+    else s = (processor.hasRender() ? "RESULT READY" : "READY") + juce::String ("  |  take ") + juce::String (processor.getCaptureSeconds(), 2) + " s  |  selection "
              + juce::String (processor.getSelectionEnd() - processor.getSelectionStart(), 3) + " s";
     if (processor.captureHitLimit()) s += "  |  60 s LIMIT";
     if (processor.inputClipped()) s += "  |  INPUT CLIP";
@@ -677,21 +697,9 @@ void StutterLabAudioProcessorEditor::doGenerate()
     if (! processor.generate (err)) infoText = err;
 }
 
-void StutterLabAudioProcessorEditor::doExport()
+void StutterLabAudioProcessorEditor::parameterChanged (const juce::String&, float)
 {
-    if (! processor.hasRender()) return;
-    const auto def = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("STUTTER_LAB_Render.wav");
-    fileChooser = std::make_unique<juce::FileChooser> ("Export WAV", def, "*.wav");
-    juce::Component::SafePointer<StutterLabAudioProcessorEditor> safe (this);
-    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
-        [safe] (const juce::FileChooser& fc)
-        {
-            if (safe == nullptr) return;
-            auto dest = fc.getResult();
-            if (dest == juce::File()) return;
-            juce::String err;
-            safe->infoText = safe->processor.exportRenderTo (dest.withFileExtension ("wav"), err) ? "Exported " + dest.getFileName() : err;
-        });
+    autoRenderPending.store (true, std::memory_order_release);
 }
 
 //==============================================================================
@@ -739,10 +747,11 @@ void StutterLabAudioProcessorEditor::mouseDrag (const juce::MouseEvent& e)
     {
         const double t = juce::jlimit (0.0, 1.0, (double) (e.x - waveArea.getX()) / waveArea.getWidth()) * processor.getCaptureSeconds();
         processor.setSelection (dragAnchor, t);
+        autoRenderPending.store (true, std::memory_order_release);
         return;
     }
     // Drag-out starts only from the DRAG TO DAW handle or the result waveform, and only the exact rendered file.
-    if (! dragStarted && processor.hasRender() && e.getDistanceFromDragStart() > 6
+    if (! dragStarted && processor.hasRender() && ! autoRenderPending.load() && ! autoRenderArmed && e.getDistanceFromDragStart() > 6
         && (dragArea.contains (pressPoint) || renderArea.contains (pressPoint)))
     {
         const auto file = processor.getRenderInfo().file;

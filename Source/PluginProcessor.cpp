@@ -7,8 +7,16 @@
 class StutterLabAudioProcessor::RenderWorker final : public juce::Thread
 {
 public:
-    explicit RenderWorker (StutterLabAudioProcessor& o) : juce::Thread ("STUTTER LAB render"), owner (o) { startThread(); }
-    ~RenderWorker() override { owner.cancelFlag.store (true); stopThread (4000); }
+    explicit RenderWorker (StutterLabAudioProcessor& o) : juce::Thread ("STUTTER LAB render"), owner (o) {}
+    ~RenderWorker() override
+    {
+        owner.cancelFlag.store (true, std::memory_order_release);
+        signalThreadShouldExit();
+        wake.signal();
+        // The processor owns every object used by this worker. Never allow the
+        // thread to outlive the processor if a long render exceeds an arbitrary timeout.
+        waitForThreadToExit (-1);
+    }
 
     void post (Job&& j)
     {
@@ -29,6 +37,7 @@ public:
         while (! threadShouldExit())
         {
             wake.wait (200);
+            if (threadShouldExit()) break;
             std::unique_ptr<Job> job;
             { const juce::ScopedLock sl (lock); job = std::move (pending); }
             if (job == nullptr) continue;
@@ -69,24 +78,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout StutterLabAudioProcessor::cr
     using APB = juce::AudioParameterBool;
     using APC = juce::AudioParameterChoice;
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
-    layout.add (std::make_unique<API> ("repeats", "Repeats", 2, 32, 4));
-    layout.add (std::make_unique<APC> ("division", "Rate", juce::StringArray { "1/2", "1/4", "1/8", "1/8 D", "1/8 T", "1/16", "1/16 D", "1/16 T", "1/32", "1/32 T", "1/64" }, 2));
+    layout.add (std::make_unique<API> ("repeats", "Repeats", 2, 32, 8));
+    layout.add (std::make_unique<APC> ("division", "Rate", juce::StringArray { "1/2", "1/4", "1/8", "1/8 D", "1/8 T", "1/16", "1/16 D", "1/16 T", "1/32", "1/32 T", "1/64" }, 5));
     layout.add (std::make_unique<APC> ("direction", "Direction", juce::StringArray { "Forward", "Reverse", "Ping-Pong", "Random" }, 0));
     layout.add (std::make_unique<APB> ("scan", "Scan Source", false));
-    layout.add (std::make_unique<APF> ("swing", "Swing", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
-    layout.add (std::make_unique<APF> ("gate", "Gate", juce::NormalisableRange<float> (0.05f, 1.0f, 0.01f), 1.0f));
-    layout.add (std::make_unique<APF> ("humanize", "Humanize", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
-    layout.add (std::make_unique<APF> ("drive", "Drive", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+    layout.add (std::make_unique<APF> ("swing", "Swing", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.05f));
+    layout.add (std::make_unique<APF> ("gate", "Gate", juce::NormalisableRange<float> (0.05f, 1.0f, 0.01f), 0.82f));
+    layout.add (std::make_unique<APF> ("humanize", "Humanize", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.04f));
+    layout.add (std::make_unique<APF> ("drive", "Drive", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.12f));
     layout.add (std::make_unique<APB> ("phone", "Phone", false));
     layout.add (std::make_unique<APF> ("pitch", "Pitch", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
     layout.add (std::make_unique<APF> ("formant", "Formant", juce::NormalisableRange<float> (-6.0f, 6.0f, 0.1f), 0.0f));
     layout.add (std::make_unique<APC> ("delayDivision", "Delay Rate", juce::StringArray { "1/2", "1/4", "1/8", "1/8 D", "1/8 T", "1/16", "1/16 D", "1/16 T", "1/32", "1/32 T", "1/64" }, 2));
-    layout.add (std::make_unique<APF> ("delayMix", "Delay Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+    layout.add (std::make_unique<APF> ("delayMix", "Delay Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.08f));
     layout.add (std::make_unique<APF> ("delayFeedback", "Delay Feedback", juce::NormalisableRange<float> (0.0f, 0.85f, 0.01f), 0.28f));
-    layout.add (std::make_unique<APF> ("reverbMix", "Reverb Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.0f));
+    layout.add (std::make_unique<APF> ("reverbMix", "Reverb Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.07f));
     layout.add (std::make_unique<APF> ("reverbSize", "Reverb Size", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 0.5f));
     layout.add (std::make_unique<APF> ("bpm", "Manual BPM", juce::NormalisableRange<float> (40.0f, 300.0f, 0.1f), 120.0f));
-    layout.add (std::make_unique<APB> ("loop", "Loop Preview", false));
+    layout.add (std::make_unique<APB> ("loop", "Loop Preview", true));
     // pattern (0 = rest, otherwise the accent level of that step)
     layout.add (std::make_unique<API> ("steps", "Pattern Length", 1, 16, 8));
     for (int i = 0; i < 16; ++i)
@@ -115,8 +124,8 @@ StutterLabAudioProcessor::StutterLabAudioProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       parameters (*this, &undoManager, "STUTTER_LAB_PARAMETERS", createParameterLayout())
 {
-    cleanOldRenders();
-    worker = std::make_unique<RenderWorker> (*this);
+    // Start the render thread lazily on the first render request. Hosts create and
+    // destroy processor instances during scans; they should not spawn idle threads.
 }
 
 StutterLabAudioProcessor::~StutterLabAudioProcessor()
@@ -199,14 +208,71 @@ juce::AudioProcessorEditor* StutterLabAudioProcessor::createEditor() { return ne
 //==============================================================================
 void StutterLabAudioProcessor::startCapture()
 {
-    preview.stop();
+    invalidateRender();
     capture.requestStart();
 }
 void StutterLabAudioProcessor::stopCapture() { capture.requestStop(); }
+
+juce::File StutterLabAudioProcessor::getAudioLibraryDirectory (const juce::String& subfolder) const
+{
+    auto root = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                    .getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB").getChildFile ("Audio");
+    if (subfolder.isNotEmpty()) root = root.getChildFile (subfolder);
+    root.createDirectory();
+    return root;
+}
+
+bool StutterLabAudioProcessor::archiveCapture (juce::File& savedFile, juce::String& error)
+{
+    if (capture.isRecording()) { error = "Stop the capture before archiving it."; return false; }
+    cray::StereoBuffer take;
+    if (! capture.snapshotAll (take) || take.empty()) { error = "There is no captured audio to save."; return false; }
+
+    const auto folder = getAudioLibraryDirectory ("Captures");
+    if (! folder.isDirectory()) { error = "Could not create the STUTTER LAB Audio/Captures folder."; return false; }
+
+    static std::atomic<int> captureCounter { 0 };
+    const auto stamp = juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S");
+    savedFile = folder.getNonexistentChildFile ("STUTTER_CAPTURE_" + stamp + "_" + juce::String (++captureCounter), ".wav", false);
+    const auto bytes = cray::encodeWav (take, cray::WavFormat::Pcm24);
+    juce::FileOutputStream out (savedFile);
+    if (! out.openedOk() || ! out.write (bytes.data(), bytes.size()))
+    {
+        savedFile.deleteFile();
+        error = "Could not save the captured WAV in " + folder.getFullPathName();
+        return false;
+    }
+    out.flush();
+    if (! out.getStatus().wasOk())
+    {
+        savedFile.deleteFile();
+        error = "The captured WAV could not be written completely.";
+        return false;
+    }
+    return true;
+}
+
 void StutterLabAudioProcessor::clearCapture()
 {
+    invalidateRender();
     capture.clear();
     selectionStart.store (0.0); selectionEnd.store (0.5);
+}
+
+void StutterLabAudioProcessor::invalidateRender()
+{
+    nextJobId.fetch_add (1, std::memory_order_acq_rel); // invalidate any worker result already in flight
+    cancelRender();
+    preview.stop();
+    {
+        const juce::ScopedLock sl (infoLock);
+        info = {};
+        originalAudio = {};
+        processedAudio = {};
+    }
+    renderProgress.store (0.0f, std::memory_order_release);
+    renderId.fetch_add (1, std::memory_order_acq_rel);
+    renderState.store (RenderState::Idle, std::memory_order_release);
 }
 
 void StutterLabAudioProcessor::setSelection (double a, double b)
@@ -428,7 +494,20 @@ bool StutterLabAudioProcessor::generate (juce::String& error)
     estimate += std::min (6.0, delayTail + reverbTail);
     if (estimate > 120.0) { error = "Render including effect tails would exceed 120 s. Reduce repeats, feedback or reverb size."; return false; }
 
-    preview.stop();
+    // Keep an active audition running: the worker will hot-swap its audio buffer
+    // at the next audio callback when the new render is ready.
+    if (worker == nullptr)
+    {
+        auto candidate = std::make_unique<RenderWorker> (*this);
+        if (! candidate->startThread())
+        {
+            error = "Could not start the background render thread.";
+            renderState.store (RenderState::Failed, std::memory_order_release);
+            return false;
+        }
+        worker = std::move (candidate);
+    }
+
     renderProgress.store (0.0f, std::memory_order_release);
     renderState.store (RenderState::Rendering);
     worker->post (std::move (job));
@@ -437,7 +516,7 @@ bool StutterLabAudioProcessor::generate (juce::String& error)
 
 void StutterLabAudioProcessor::cancelRender()
 {
-    worker->cancelAll();
+    if (worker != nullptr) worker->cancelAll();
     if (renderState.load() == RenderState::Rendering)
     {
         renderProgress.store (0.0f, std::memory_order_release);
@@ -473,20 +552,27 @@ void StutterLabAudioProcessor::publishRender (cray::StereoBuffer&& audio, const 
         renderState.store (RenderState::Failed);
         return;
     }
-    // 3) publish the exact rendered buffer for preview, then the metadata
-    auto* pb = new cray::PreviewBuffer();
-    pb->audio = audio;
-    preview.submit (pb);
+    // 3) Publish atomically with respect to capture invalidation. A render that
+    // finished after a new capture began must never replace the new take's result.
     {
         const juce::ScopedLock sl (infoLock);
+        if (id + 1 != nextJobId.load (std::memory_order_acquire))
+        {
+            file.deleteFile();
+            return;
+        }
         processedAudio = audio;
         info.file = file; info.seconds = stats.seconds; info.peak = stats.peak; info.sampleRate = audio.sampleRate;
         info.slices = (int) stats.slices; info.bitDepth = 24; info.id = id; info.peaks = std::move (peaks);
         info.message = {};
+        auto* pb = new cray::PreviewBuffer();
+        pb->audio = audio;
+        pb->keepPosition = preview.isPlaying();
+        preview.submit (pb);
+        renderProgress.store (1.0f, std::memory_order_release);
+        renderId.store (id, std::memory_order_release);
+        renderState.store (RenderState::Ready, std::memory_order_release);
     }
-    renderProgress.store (1.0f, std::memory_order_release);
-    renderId.store (id);
-    renderState.store (RenderState::Ready);
 }
 
 StutterLabAudioProcessor::RenderInfo StutterLabAudioProcessor::getRenderInfo() const
@@ -521,20 +607,11 @@ bool StutterLabAudioProcessor::exportRenderTo (const juce::File& destination, ju
 juce::File StutterLabAudioProcessor::makeUniqueRenderFile() const
 {
     static std::atomic<int> counter { 0 };
-    auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB");
-    dir.createDirectory();
+    auto dir = getAudioLibraryDirectory ("Renders");
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S");
     return dir.getNonexistentChildFile ("STUTTER_LAB_" + stamp + "_" + juce::String (++counter), ".wav", false);
 }
 
-void StutterLabAudioProcessor::cleanOldRenders() const
-{
-    auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB");
-    juce::Array<juce::File> files;
-    dir.findChildFiles (files, juce::File::findFiles, false, "STUTTER_LAB_*.wav");
-    const auto cutoff = juce::Time::getCurrentTime() - juce::RelativeTime::days (2);
-    for (auto& f : files) if (f.getLastModificationTime() < cutoff) f.deleteFile();   // only files older than 2 days
-}
 
 //==============================================================================
 // State: v1-v4 are migrated; v5 adds compressed capture persistence.
@@ -580,9 +657,26 @@ void StutterLabAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 
 void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
 {
+    // Hosts may pass an empty, truncated or stale state block during project recovery.
+    // Reject impossible chunks before constructing a stream or mutating processor state.
+    constexpr int maxStateBytes = 128 * 1024 * 1024;
+    if (data == nullptr || size < (int) sizeof (int) || size > maxStateBytes)
+        return;
+
     juce::MemoryInputStream in (data, (size_t) size, false);
     const int version = in.readInt();
     if (version < 1 || version > 7) return;
+
+    // Minimum remaining payload for each legacy format, including the selection range
+    // and any version-specific fields that must be present before they are read.
+    const int minimumPayloadBytes = version <= 2 ? (version == 1 ? 25 : 30)
+                                  : version == 3 ? 55
+                                  : version == 4 ? 79
+                                  : version == 5 ? 83
+                                  : version == 6 ? 87
+                                  : 91;
+    if (in.getNumBytesRemaining() < minimumPayloadBytes)
+        return;
     if (version <= 2)
     {
         repeats.store (juce::jlimit (2, 32, in.readInt()));
@@ -621,7 +715,8 @@ void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
     if (version >= 5 && in.getNumBytesRemaining() >= 4)
     {
         const int compressedSize = juce::jlimit (0, 128 * 1024 * 1024, in.readInt());
-        if (compressedSize > 0 && compressedSize <= in.getNumBytesRemaining())
+        if (compressedSize > 0 && compressedSize <= 64 * 1024 * 1024
+            && compressedSize <= in.getNumBytesRemaining())
         {
             juce::MemoryBlock compressed;
             compressed.setSize ((size_t) compressedSize);
@@ -647,9 +742,11 @@ void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
             }
         }
     }
-    if (version >= 7 && in.getNumBytesRemaining() > 0)
+    if (version >= 7 && in.getNumBytesRemaining() >= 4)
     {
-        if (auto xml = juce::XmlDocument::parse (in.readString()))
+        const auto xmlText = in.readString();
+        if (xmlText.getNumBytesAsUTF8() <= 1024 * 1024)
+        if (auto xml = juce::XmlDocument::parse (xmlText))
         {
             const auto tree = juce::ValueTree::fromXml (*xml);
             if (tree.isValid() && tree.getType() == parameters.state.getType()) parameters.replaceState (tree);

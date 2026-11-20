@@ -45,6 +45,7 @@ public:
     // ---- CAPTURE ----
     void startCapture();
     void stopCapture();
+    bool archiveCapture (juce::File& savedFile, juce::String& error);
     void clearCapture();
     bool isCapturing() const { return capture.isRecording(); }
     int getCapturedSamples() const { return capture.numSamples(); }
@@ -107,8 +108,9 @@ private:
     class RenderWorker;
     struct Job { cray::StereoBuffer selection; cray::RenderSettings settings; uint64_t id = 0, cancelEpoch = 0; };
     void publishRender (cray::StereoBuffer&& audio, const cray::RenderStats&, uint64_t id);
+    void invalidateRender();
     juce::File makeUniqueRenderFile() const;
-    void cleanOldRenders() const;
+    juce::File getAudioLibraryDirectory (const juce::String& subfolder) const;
 
     juce::UndoManager undoManager;
     juce::AudioProcessorValueTreeState parameters;
