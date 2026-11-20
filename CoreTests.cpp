@@ -2,10 +2,10 @@
 #include <cstdio>
 #include <fstream>
 #include <thread>
-#include "../Source/Core/CaptureEngine.h"
-#include "../Source/Core/PreviewEngine.h"
-#include "../Source/Core/StutterEngine.h"
-#include "../Source/Core/WavEncoder.h"
+#include "CaptureEngine.h"
+#include "PreviewEngine.h"
+#include "StutterEngine.h"
+#include "WavEncoder.h"
 
 using namespace cray;
 static int failures = 0, checks = 0;
