@@ -541,7 +541,7 @@ void StutterLabAudioProcessor::cleanOldRenders() const
 void StutterLabAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 {
     syncParametersToAtomics();
-    juce::MemoryOutputStream out (dest, true);
+    juce::MemoryOutputStream out (dest, false);
     out.writeInt (7);
     out.writeInt (repeats.load()); out.writeInt (division.load()); out.writeInt (direction.load());
     out.writeBool (scanSelection.load());
@@ -580,7 +580,12 @@ void StutterLabAudioProcessor::getStateInformation (juce::MemoryBlock& dest)
 
 void StutterLabAudioProcessor::setStateInformation (const void* data, int size)
 {
-    juce::MemoryInputStream in (data, (size_t) size, false);
+    // Reject empty, null or unreasonable host state before reading or casting its size.
+    constexpr int maxStateBytes = 160 * 1024 * 1024;
+    if (data == nullptr || size < static_cast<int> (sizeof (int)) || size > maxStateBytes)
+        return;
+
+    juce::MemoryInputStream in (data, static_cast<size_t> (size), false);
     const int version = in.readInt();
     if (version < 1 || version > 7) return;
     if (version <= 2)
