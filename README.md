@@ -42,6 +42,14 @@ Copy the complete `.vst3` folder to:
 
 Do not copy only the inner binary from `Contents\x86_64-win`. The `.vst3` bundle must remain intact.
 
+## FL Studio installation and routing
+
+STUTTER LAB is a **VST3 effect**, not an instrument. Copy the complete `STUTTER LAB.vst3` folder directly into:
+
+`C:\Program Files\Common Files\VST3\`
+
+Then run **Options → Manage plugins → Find plugins** in FL Studio and insert STUTTER LAB into a Mixer effect slot. Do not load it from the Channel Rack instrument list.
+
 ## Automated validation
 
 - JUCE-free DSP/capture/preview core tests.
