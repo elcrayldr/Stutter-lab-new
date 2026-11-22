@@ -34,7 +34,10 @@ jobs:
       - name: Verify VST3 bundle structure
         shell: pwsh
         run: |
-          $plugin = Join-Path (Get-Location) "build/STUTTER_LAB_artefacts/Release/VST3/STUTTER LAB.vst3"
+          $vst3Root = Join-Path (Get-Location) "build/STUTTER_LAB_artefacts/Release/VST3"
+          $bundles = @(Get-ChildItem -LiteralPath $vst3Root -Directory -Filter "*.vst3")
+          if ($bundles.Count -ne 1) { throw "Expected exactly one VST3 bundle in $vst3Root; found $($bundles.Count)." }
+          $plugin = $bundles[0].FullName
           $moduleInfo = Join-Path $plugin "Contents/Resources/moduleinfo.json"
           $binaryDir = Join-Path $plugin "Contents/x86_64-win"
           if (-not (Test-Path -LiteralPath $moduleInfo -PathType Leaf)) { throw "VST3 moduleinfo.json missing: $moduleInfo" }
@@ -53,8 +56,10 @@ jobs:
           Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
           $validator = Get-ChildItem -Path $dest -Filter "pluginval.exe" -Recurse | Select-Object -First 1
           if ($null -eq $validator) { throw "pluginval.exe was not found in the downloaded archive." }
-          $plugin = Join-Path (Get-Location) "build/STUTTER_LAB_artefacts/Release/VST3/STUTTER LAB.vst3"
-          if (-not (Test-Path -LiteralPath $plugin)) { throw "Built VST3 bundle not found: $plugin" }
+          $vst3Root = Join-Path (Get-Location) "build/STUTTER_LAB_artefacts/Release/VST3"
+          $bundles = @(Get-ChildItem -LiteralPath $vst3Root -Directory -Filter "*.vst3")
+          if ($bundles.Count -ne 1) { throw "Expected exactly one VST3 bundle in $vst3Root; found $($bundles.Count)." }
+          $plugin = $bundles[0].FullName
           $logDir = Join-Path $env:RUNNER_TEMP "pluginval-logs"
           New-Item -ItemType Directory -Path $logDir -Force | Out-Null
           & $validator.FullName --strictness-level 10 --output-dir $logDir $plugin
