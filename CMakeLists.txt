@@ -16,7 +16,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(STUTTER_LAB
-    COMPANY_NAME "CRAY LDR"
+    COMPANY_NAME "Cray LDR"
     BUNDLE_ID "com.crayldr.stutterlab.v2"
     PLUGIN_MANUFACTURER_CODE CrLd
     PLUGIN_CODE StL2
