@@ -115,8 +115,8 @@ StutterLabAudioProcessor::StutterLabAudioProcessor()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       parameters (*this, &undoManager, "STUTTER_LAB_PARAMETERS", createParameterLayout())
 {
-    cleanOldRenders();
-    worker = std::make_unique<RenderWorker> (*this);
+    // Defer filesystem work and worker-thread creation until the user requests a render.
+    // The VST3 processor constructor must remain lightweight for strict hosts such as FL Studio.
 }
 
 StutterLabAudioProcessor::~StutterLabAudioProcessor()
@@ -431,13 +431,16 @@ bool StutterLabAudioProcessor::generate (juce::String& error)
     preview.stop();
     renderProgress.store (0.0f, std::memory_order_release);
     renderState.store (RenderState::Rendering);
+    if (worker == nullptr)
+        worker = std::make_unique<RenderWorker> (*this);
     worker->post (std::move (job));
     return true;
 }
 
 void StutterLabAudioProcessor::cancelRender()
 {
-    worker->cancelAll();
+    if (worker != nullptr)
+        worker->cancelAll();
     if (renderState.load() == RenderState::Rendering)
     {
         renderProgress.store (0.0f, std::memory_order_release);
@@ -521,6 +524,7 @@ bool StutterLabAudioProcessor::exportRenderTo (const juce::File& destination, ju
 juce::File StutterLabAudioProcessor::makeUniqueRenderFile() const
 {
     static std::atomic<int> counter { 0 };
+    cleanOldRenders();
     auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("CRAY LDR").getChildFile ("STUTTER LAB");
     dir.createDirectory();
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S");
