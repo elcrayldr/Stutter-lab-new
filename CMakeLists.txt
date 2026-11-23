@@ -52,7 +52,6 @@ target_link_libraries(STUTTER_LAB PRIVATE
     juce::juce_audio_utils
     PUBLIC
     juce::juce_recommended_config_flags
-    juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
 )
 option(STUTTERLAB_BUILD_TESTS "Build the JUCE-free core tests" OFF)
